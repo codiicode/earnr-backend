@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require(a'@supabase/supabase-js');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -314,7 +314,7 @@ app.get('/api/tasks/:id', async (req, res) => {
 // ============================================
 // SUBMISSIONS ROUTES
 // ============================================
-
+aaaa
 // Submit proof for a task
 app.post('/api/submissions', async (req, res) => {
   const user = await getUser(req);
