@@ -154,6 +154,54 @@
             background: var(--yellow);
         }
 
+        /* User Dropdown */
+        .user-dropdown-container {
+            position: relative;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: var(--black-light);
+            border: 1px solid var(--border);
+            min-width: 160px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .user-dropdown-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            font-size: 0.75rem;
+            color: var(--gray-light);
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .user-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-dropdown-item:hover {
+            background: var(--green-dim);
+            color: var(--white);
+        }
+
+        .user-dropdown-item.logout {
+            color: var(--red);
+        }
+
+        .user-dropdown-item.logout:hover {
+            background: rgba(255, 71, 87, 0.1);
+        }
+
         .sidebar-footer {
             padding: 1rem;
             border-top: 1px solid var(--border);
@@ -1274,15 +1322,21 @@
                     <button class="menu-toggle" id="menuToggle">=</button>
                     <h1 class="page-title" id="pageTitle">Dashboard</h1>
                 </div>
-                <div class="topbar-right">
+               <div class="topbar-right">
                     <div class="online-count">
                         <span class="online-dot"></span>
                         <span><strong id="onlineCount">0</strong> online</span>
                     </div>
-                    <button class="btn btn-x" id="connectBtn">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                        SIGN IN WITH X
-                    </button>
+                    <div class="user-dropdown-container">
+                        <button class="btn btn-x" id="connectBtn">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                            SIGN IN WITH X
+                        </button>
+                        <div class="user-dropdown" id="userDropdown">
+                            <div class="user-dropdown-item" onclick="navigateTo('profile')">My Profile</div>
+                            <div class="user-dropdown-item logout" onclick="logout()">Log Out</div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -1669,20 +1723,33 @@
             });
         });
 
-        // ============================================
+       // ============================================
         // AUTH
         // ============================================
 
-        document.getElementById('connectBtn').addEventListener('click', () => {
+        document.getElementById('connectBtn').addEventListener('click', (e) => {
             if (currentUser) {
-                // Logout
-                window.location.href = '/auth/logout';
+                // Toggle dropdown
+                e.stopPropagation();
+                document.getElementById('userDropdown').classList.toggle('show');
             } else {
                 // Login
                 window.location.href = '/auth/login';
             }
         });
 
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('userDropdown');
+            const btn = document.getElementById('connectBtn');
+            if (!btn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        function logout() {
+            window.location.href = '/auth/logout';
+        }
         async function checkAuth() {
             try {
                 const res = await fetch('/api/me', { credentials: 'include' });
