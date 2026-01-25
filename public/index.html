@@ -980,25 +980,25 @@
         }
         .payout-usd { font-size: 0.65rem; color: var(--gray); text-align: right; margin-top: 0.2rem; }
 
-        /* Hunters */
-        .hunters-grid {
+        /* earnrs */
+        .earnrs-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 1.5rem;
         }
 
-        .hunter-card {
+        .earnr-card {
             background: var(--gray-dark);
             border: 1px solid var(--border);
             padding: 2.5rem;
             text-align: center;
         }
 
-        .hunter-card:hover {
+        .earnr-card:hover {
             border-color: var(--border-light);
         }
 
-        .hunter-avatar {
+        .earnr-avatar {
             width: 64px;
             height: 64px;
             margin: 0 auto 1.25rem;
@@ -1006,25 +1006,25 @@
             background: var(--border-light);
         }
 
-        .hunter-avatar img {
+        .earnr-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
 
-        .hunter-name {
+        .earnr-name {
             font-size: 1rem;
             font-weight: 500;
             margin-bottom: 0.25rem;
         }
 
-        .hunter-handle {
+        .earnr-handle {
             font-size: 0.75rem;
             color: var(--gray);
             margin-bottom: 1.5rem;
         }
 
-        .hunter-stats {
+        .earnr-stats {
             display: flex;
             justify-content: center;
             gap: 2.5rem;
@@ -1032,7 +1032,7 @@
             color: var(--gray);
         }
 
-        .hunter-stat-value {
+        .earnr-stat-value {
             color: var(--green);
             font-weight: 500;
             display: block;
@@ -1112,14 +1112,14 @@
 
         /* Responsive */
         @media (max-width: 1400px) {
-            .hunters-grid { grid-template-columns: repeat(3, 1fr); }
+            .earnrs-grid { grid-template-columns: repeat(3, 1fr); }
             .task-card { grid-template-columns: 120px 1fr 150px 120px; gap: 2rem; }
         }
 
         @media (max-width: 1200px) {
             .main-grid { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .hunters-grid { grid-template-columns: repeat(2, 1fr); }
+            .earnrs-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 1024px) {
@@ -1143,7 +1143,7 @@
             .page { padding: 1.5rem; }
             .topbar { padding: 1rem 1.5rem; }
             .stats-grid { grid-template-columns: 1fr; }
-            .hunters-grid { grid-template-columns: 1fr; }
+            .earnrs-grid { grid-template-columns: 1fr; }
             .submission-body { grid-template-columns: 1fr; }
             .notif-panel { width: 100%; right: -100%; }
             .settings-row { grid-template-columns: 1fr; gap: 1rem; }
@@ -1242,8 +1242,8 @@
                         <span class="nav-icon">-</span>Payouts
                         <span class="nav-badge live">LIVE</span>
                     </div>
-                    <div class="nav-item" data-page="hunters">
-                        <span class="nav-icon">-</span>Hunters
+                    <div class="nav-item" data-page="earnrs">
+                        <span class="nav-icon">-</span>earnrs
                     </div>
                 </div>
                 <div class="nav-section">
@@ -1330,13 +1330,13 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <span class="card-title">Top Hunters This Week</span>
-                            <span class="card-action" onclick="navigateTo('hunters')">View All</span>
+                            <span class="card-title">Top earnrs This Week</span>
+                            <span class="card-action" onclick="navigateTo('earnrs')">View All</span>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
                                 <div class="empty-state-icon">-</div>
-                                <div class="empty-state-text">No hunters yet</div>
+                                <div class="empty-state-text">No earnrs yet</div>
                                 <div class="empty-state-sub">Leaderboard updates weekly</div>
                             </div>
                         </div>
@@ -1404,7 +1404,7 @@
                         </div>
                     </div>
                     <div class="profile-rank">
-                        <div class="rank-label">Hunter Rank</div>
+                        <div class="rank-label">earnr Rank</div>
                         <div class="rank-name">UNRANKED</div>
                         <div class="rank-progress">0 / 1,000 XP</div>
                         <div class="rank-bar">
@@ -1470,7 +1470,7 @@
                         <div class="stat-change">$EARNR</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Total Hunters</div>
+                        <div class="stat-label">Total earnrs</div>
                         <div class="stat-value">0</div>
                         <div class="stat-change">registered</div>
                     </div>
@@ -1508,11 +1508,11 @@
                 </div>
             </div>
 
-            <!-- Hunters -->
-            <div class="page" id="hunters">
+            <!-- earnrs -->
+            <div class="page" id="earnrs">
                 <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:3rem">
                     <div class="stat-card">
-                        <div class="stat-label">Total Hunters</div>
+                        <div class="stat-label">Total earnrs</div>
                         <div class="stat-value">0</div>
                         <div class="stat-change">registered</div>
                     </div>
@@ -1544,11 +1544,11 @@
                     </div>
                 </div>
 
-                <h3 style="font-size:0.9rem;margin-bottom:1.5rem;font-weight:500;">All Hunters</h3>
+                <h3 style="font-size:0.9rem;margin-bottom:1.5rem;font-weight:500;">All earnrs</h3>
                 <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
                     <div class="empty-state-icon">-</div>
-                    <div class="empty-state-text">No hunters registered</div>
-                    <div class="empty-state-sub">Connect with X to become the first hunter</div>
+                    <div class="empty-state-text">No earnrs registered</div>
+                    <div class="empty-state-sub">Connect with X to become the first earnr</div>
                 </div>
             </div>
         </main>
@@ -1611,7 +1611,7 @@
             document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
             document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
             
-            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts', hunters:'Hunters' };
+            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts', earnrs:'earnrs' };
             document.getElementById('pageTitle').textContent = titles[page];
             
             document.getElementById('sidebar').classList.remove('open');
@@ -1621,7 +1621,7 @@
             // Load page-specific data
             if (page === 'tasks') loadTasks();
             if (page === 'submissions') loadSubmissions();
-            if (page === 'hunters') loadHunters();
+            if (page === 'earnrs') loadearnrs();
         }
 
         document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -1748,7 +1748,7 @@
                         </div>
                     </div>
                     <div class="profile-rank">
-                        <div class="rank-label">Hunter Rank</div>
+                        <div class="rank-label">earnr Rank</div>
                         <div class="rank-name">${currentUser.rank}</div>
                         <div class="rank-progress">${currentUser.xp || 0} / ${getNextRankXP(currentUser.rank)} XP</div>
                         <div class="rank-bar">
@@ -1821,7 +1821,7 @@
                             <div class="stat-change">$EARNR</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">Total Hunters</div>
+                            <div class="stat-label">Total earnrs</div>
                             <div class="stat-value">${data.totalUsers}</div>
                             <div class="stat-change">registered</div>
                         </div>
@@ -1851,7 +1851,7 @@
                                     ${item.type === 'JOIN' ? 'just joined EARNR' : `earned ${item.amount?.toLocaleString()} $EARNR`}
                                 </div>
                                 <div class="activity-meta">
-                                    ${item.type === 'JOIN' ? 'New hunter' : item.task_name} — ${timeAgo(item.created_at)}
+                                    ${item.type === 'JOIN' ? 'New earnr' : item.task_name} — ${timeAgo(item.created_at)}
                                 </div>
                             </div>
                             <div class="activity-badge ${item.type === 'JOIN' ? 'join' : ''}">
@@ -1898,7 +1898,7 @@
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">-</div>
-                            <div class="empty-state-text">No hunters yet</div>
+                            <div class="empty-state-text">No earnrs yet</div>
                             <div class="empty-state-sub">Leaderboard updates weekly</div>
                         </div>
                     `;
@@ -2049,23 +2049,23 @@
         }
 
         // ============================================
-        // HUNTERS
+        // earnrs
         // ============================================
 
-        async function loadHunters() {
+        async function loadearnrs() {
             try {
-                const res = await fetch('/api/hunters');
+                const res = await fetch('/api/earnrs');
                 const data = await res.json();
                 
                 // Update stats
                 const statsRes = await fetch('/api/stats');
                 const stats = await statsRes.json();
                 
-                const statsGrid = document.querySelector('#hunters .stats-grid');
+                const statsGrid = document.querySelector('#earnrs .stats-grid');
                 if (statsGrid) {
                     statsGrid.innerHTML = `
                         <div class="stat-card">
-                            <div class="stat-label">Total Hunters</div>
+                            <div class="stat-label">Total earnrs</div>
                             <div class="stat-value">${stats.totalUsers || 0}</div>
                             <div class="stat-change">registered</div>
                         </div>
@@ -2076,36 +2076,36 @@
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">New Signups</div>
-                            <div class="stat-value">${data.hunters?.filter(h => new Date(h.created_at) > new Date(Date.now() - 86400000)).length || 0}</div>
+                            <div class="stat-value">${data.earnrs?.filter(h => new Date(h.created_at) > new Date(Date.now() - 86400000)).length || 0}</div>
                             <div class="stat-change">last 24 hours</div>
                         </div>
                     `;
                 }
                 
-                // Update hunters grid
-                const huntersContainer = document.querySelector('#hunters .hunters-grid') || document.querySelector('#hunters h3')?.nextElementSibling;
+                // Update earnrs grid
+                const earnrsContainer = document.querySelector('#earnrs .earnrs-grid') || document.querySelector('#earnrs h3')?.nextElementSibling;
                 
-                if (data.hunters && data.hunters.length > 0) {
-                    const huntersHtml = data.hunters.map(hunter => `
-                        <div class="hunter-card">
-                            <div class="hunter-avatar">
-                                ${hunter.avatar_url ? `<img src="${hunter.avatar_url}" alt="">` : ''}
+                if (data.earnrs && data.earnrs.length > 0) {
+                    const earnrsHtml = data.earnrs.map(earnr => `
+                        <div class="earnr-card">
+                            <div class="earnr-avatar">
+                                ${earnr.avatar_url ? `<img src="${earnr.avatar_url}" alt="">` : ''}
                             </div>
-                            <div class="hunter-name">${hunter.display_name || hunter.username}</div>
-                            <div class="hunter-handle">@${hunter.username}</div>
-                            <div class="hunter-stats">
-                                <div><span class="hunter-stat-value">${hunter.tasks_completed}</span> tasks</div>
-                                <div><span class="hunter-stat-value">${formatNumber(hunter.total_earned)}</span> earned</div>
+                            <div class="earnr-name">${earnr.display_name || earnr.username}</div>
+                            <div class="earnr-handle">@${earnr.username}</div>
+                            <div class="earnr-stats">
+                                <div><span class="earnr-stat-value">${earnr.tasks_completed}</span> tasks</div>
+                                <div><span class="earnr-stat-value">${formatNumber(earnr.total_earned)}</span> earned</div>
                             </div>
                         </div>
                     `).join('');
                     
-                    if (huntersContainer) {
-                        huntersContainer.outerHTML = `<div class="hunters-grid">${huntersHtml}</div>`;
+                    if (earnrsContainer) {
+                        earnrsContainer.outerHTML = `<div class="earnrs-grid">${earnrsHtml}</div>`;
                     }
                 }
             } catch (err) {
-                console.error('Failed to load hunters:', err);
+                console.error('Failed to load earnrs:', err);
             }
         }
 
