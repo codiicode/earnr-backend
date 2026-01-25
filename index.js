@@ -86,7 +86,7 @@ module.exports = async function(req, res) {
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
     if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true); return res.status(200).json({tasks: r.data || []}); }
     if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }
-    if (p === '/api/hunters') { var r = await supabase.from('users').select('*').order('created_at', {ascending: false}); return res.status(200).json({hunters: r.data || []}); }
+    if (p === '/api/earnrs' || p === '/api/hunters') { var r = await supabase.from('users').select('*').order('created_at', {ascending: false}); return res.status(200).json({earnrs: r.data || [], hunters: r.data || []}); }
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
 
     var htmlPath = path.join(process.cwd(), 'public', 'index.html');
