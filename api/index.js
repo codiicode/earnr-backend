@@ -87,7 +87,14 @@ module.exports = async function(req, res) {
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
     if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true); return res.status(200).json({tasks: r.data || []}); }
     if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }
-    if (p === '/api/earnrs' || p === '/api/hunters') { var r = await supabase.from('users').select('*').order('created_at', {ascending: false}); return res.status(200).json({earnrs: r.data || [], hunters: r.data || []}); }
+    if (p === '/api/earnrs' || p === '/api/hunters') {
+      var r = await supabase.from('users').select('*').order('created_at', {ascending: false});
+      if (r.error) {
+        console.error('Error fetching earnrs:', r.error);
+        return res.status(500).json({error: r.error.message, earnrs: [], hunters: []});
+      }
+      return res.status(200).json({earnrs: r.data || [], hunters: r.data || []});
+    }
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
     if (p === '/api/wallet' && req.method === 'POST') { var u = await getUser(); if(!u) return res.status(401).json({error: 'Not logged in'}); var body = ''; for await (var chunk of req) { body += chunk; } var data = JSON.parse(body); await supabase.from('users').update({wallet_address: String(data.wallet || '').trim()}).eq('id', u.id); return res.status(200).json({success: true}); }
 
