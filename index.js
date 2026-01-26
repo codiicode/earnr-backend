@@ -82,7 +82,8 @@ module.exports = async function(req, res) {
 
     if (p === '/auth/logout') { res.setHeader('Set-Cookie', 'session=; Max-Age=0; Path=/'); res.writeHead(302, { 'Location': '/' }); return res.end(); }
     if (p === '/api/me') { return res.status(200).json({user: await getUser()}); }
-    if (p === '/api/stats') { var r = await supabase.from('users').select('*', {count: 'exact', head: true}); return res.status(200).json({totalUsers: r.count || 0, onlineUsers: 0, totalPaidOut: 0, totalTasks: 0}); }
+    if (p.startsWith('/api/user/')) { var userId = p.split('/')[3]; var r = await supabase.from('users').select('*').eq('id', userId).single(); return res.status(200).json({user: r.data || null}); }
+    if (p === '/api/stats') { var r = await supabase.from('users').select('*', {count: 'exact', head: true}); var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString(); var online = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo); return res.status(200).json({totalUsers: r.count || 0, onlineUsers: online.count || 0, totalPaidOut: 0, totalTasks: 0}); }
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
     if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true); return res.status(200).json({tasks: r.data || []}); }
     if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }

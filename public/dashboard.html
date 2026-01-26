@@ -1488,7 +1488,7 @@
                     <div class="stat-card">
                         <div class="stat-label">Total Earned</div>
                         <div class="stat-value">0</div>
-                        <div class="stat-change">$EARNR</div>
+                        <div class="stat-change">USDC</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Completed</div>
@@ -1609,11 +1609,11 @@
                     </div>
                 </div>
 
-                <div class="stats-grid">
+                <div class="stats-grid" id="profile-stats">
                     <div class="stat-card">
                         <div class="stat-label">Total Earned</div>
                         <div class="stat-value">0</div>
-                        <div class="stat-change">$EARNR</div>
+                        <div class="stat-change">USDC</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Done</div>
@@ -1627,8 +1627,8 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Member Since</div>
-                        <div class="stat-value">-</div>
-                        <div class="stat-change">not a member</div>
+                        <div class="stat-value" id="member-since-date">-</div>
+                        <div class="stat-change" id="member-since-text">not a member</div>
                     </div>
                 </div>
 
@@ -1941,6 +1941,58 @@
         function logout() {
             window.location.href = '/auth/logout';
         }
+
+        async function viewUserProfile(userId) {
+            try {
+                const res = await fetch(`/api/user/${userId}`);
+                const data = await res.json();
+
+                if (data.user) {
+                    const user = data.user;
+                    const memberDate = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+
+                    // Show user profile in a modal
+                    const modal = document.createElement('div');
+                    modal.className = 'submit-modal open';
+                    modal.id = 'userProfileModal';
+                    modal.innerHTML = `
+                        <div class="submit-modal-content" style="max-width:400px;">
+                            <div class="submit-modal-header">
+                                <span class="submit-modal-title">User Profile</span>
+                                <button class="submit-modal-close" onclick="document.getElementById('userProfileModal').remove()">&times;</button>
+                            </div>
+                            <div style="text-align:center;padding:1rem 0;">
+                                <div style="width:80px;height:80px;margin:0 auto 1rem;border-radius:50%;overflow:hidden;border:2px solid var(--green);">
+                                    <img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">
+                                </div>
+                                <div style="font-size:1.2rem;font-weight:500;margin-bottom:0.25rem;">${user.display_name || user.username}</div>
+                                <a href="https://x.com/${user.username}" target="_blank" style="color:var(--green);font-size:0.85rem;">@${user.username}</a>
+                                <div style="color:var(--gray);font-size:0.75rem;margin-top:0.5rem;">${(user.followers_count || 0).toLocaleString()} followers</div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+                                <div style="text-align:center;">
+                                    <div style="font-size:1.5rem;color:var(--green);">${formatNumber(user.total_earned)}</div>
+                                    <div style="font-size:0.65rem;color:var(--gray);letter-spacing:0.1em;">USDC EARNED</div>
+                                </div>
+                                <div style="text-align:center;">
+                                    <div style="font-size:1.5rem;color:var(--green);">${user.tasks_completed || 0}</div>
+                                    <div style="font-size:0.65rem;color:var(--gray);letter-spacing:0.1em;">TASKS DONE</div>
+                                </div>
+                            </div>
+                            <div style="text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+                                <div style="font-size:0.65rem;color:var(--gray);letter-spacing:0.1em;">MEMBER SINCE</div>
+                                <div style="font-size:0.85rem;margin-top:0.25rem;">${memberDate}</div>
+                            </div>
+                        </div>
+                    `;
+                    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+                    document.body.appendChild(modal);
+                }
+            } catch (err) {
+                console.error('Failed to load user profile:', err);
+            }
+        }
+
         async function checkAuth() {
             try {
                 const res = await fetch('/api/me', { credentials: 'include' });
@@ -2053,7 +2105,7 @@ function showPopup(message, isError) {
 
         function updateUserStats() {
             if (!currentUser) return;
-            
+
             // Update dashboard stats
             const statsGrid = document.querySelector('#dashboard .stats-grid');
             if (statsGrid) {
@@ -2061,7 +2113,7 @@ function showPopup(message, isError) {
                     <div class="stat-card">
                         <div class="stat-label">Total Earned</div>
                         <div class="stat-value">${formatNumber(currentUser.total_earned)}</div>
-                        <div class="stat-change">$EARNR</div>
+                        <div class="stat-change">USDC</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Completed</div>
@@ -2077,6 +2129,36 @@ function showPopup(message, isError) {
                         <div class="stat-label">Global Rank</div>
                         <div class="stat-value">#${currentUser.tasks_completed > 0 ? '47' : '-'}</div>
                         <div class="stat-change">${currentUser.tasks_completed > 0 ? '+12 positions' : 'unranked'}</div>
+                    </div>
+                `;
+            }
+
+            // Update profile stats
+            const profileStats = document.getElementById('profile-stats');
+            if (profileStats) {
+                const memberDate = currentUser.created_at ? new Date(currentUser.created_at) : null;
+                const memberDateStr = memberDate ? memberDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+
+                profileStats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-label">Total Earned</div>
+                        <div class="stat-value">${formatNumber(currentUser.total_earned)}</div>
+                        <div class="stat-change">USDC</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Tasks Done</div>
+                        <div class="stat-value">${currentUser.tasks_completed}</div>
+                        <div class="stat-change">lifetime</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Success Rate</div>
+                        <div class="stat-value">${currentUser.tasks_completed > 0 ? '92%' : '-'}</div>
+                        <div class="stat-change">${currentUser.tasks_completed > 0 ? 'excellent' : 'no data'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Member Since</div>
+                        <div class="stat-value">${memberDateStr}</div>
+                        <div class="stat-change">${memberDate ? 'active member' : 'not a member'}</div>
                     </div>
                 `;
             }
@@ -2347,13 +2429,13 @@ function showPopup(message, isError) {
                 if (data.activity && data.activity.length > 0) {
                     feed.innerHTML = data.activity.map(item => `
                         <div class="activity-item">
-                            <div class="activity-avatar">
+                            <div class="activity-avatar" style="cursor:pointer" onclick="viewUserProfile('${item.user_id}')">
                                 ${item.avatar_url ? `<img src="${item.avatar_url}" alt="">` : ''}
                             </div>
                             <div class="activity-content">
                                 <div class="activity-text">
-                                    <strong>@${item.username}</strong> 
-                                    ${item.type === 'JOIN' ? 'just joined EARNR' : `earned ${item.amount?.toLocaleString()} $EARNR`}
+                                    <strong style="cursor:pointer" onclick="viewUserProfile('${item.user_id}')">@${item.username}</strong>
+                                    ${item.type === 'JOIN' ? 'just joined EARNR' : `earned ${item.amount?.toLocaleString()} USDC`}
                                 </div>
                                 <div class="activity-meta">
                                     ${item.type === 'JOIN' ? 'New earnr' : item.task_name} — ${timeAgo(item.created_at)}
@@ -2387,7 +2469,7 @@ function showPopup(message, isError) {
                 
                 if (data.leaderboard && data.leaderboard.length > 0) {
                     container.innerHTML = data.leaderboard.slice(0, 4).map((user, i) => `
-                        <div class="lb-item">
+                        <div class="lb-item" style="cursor:pointer" onclick="viewUserProfile('${user.id}')">
                             <div class="lb-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
                             <div class="lb-avatar">
                                 ${user.avatar_url ? `<img src="${user.avatar_url}" alt="">` : ''}
@@ -2432,7 +2514,7 @@ function showPopup(message, isError) {
                         <div class="task-card" data-task-id="${task.id}">
                             <div class="task-reward">
                                 <div class="task-reward-value">${formatNumber(task.reward)}</div>
-                                <div class="task-reward-token">$EARNR</div>
+                                <div class="task-reward-token">USDC</div>
                             </div>
                             <div class="task-content">
                                 <h3>${task.title}</h3>
@@ -2528,6 +2610,8 @@ function showPopup(message, isError) {
                     closeSubmitModal();
                     showPopup('Submission received! We will review it shortly.');
                     loadTasks();
+                    // Refresh user data and stats
+                    await checkAuth();
                 }
             } catch (err) {
                 console.error('Failed to submit:', err);
@@ -2566,7 +2650,7 @@ function showPopup(message, isError) {
                             <div class="submission-body">
                                 <div class="submission-detail">
                                     <div class="submission-detail-label">Reward</div>
-                                    <div class="submission-detail-value reward">${sub.tasks?.reward?.toLocaleString() || 0} $EARNR</div>
+                                    <div class="submission-detail-value reward">${sub.tasks?.reward?.toLocaleString() || 0} USDC</div>
                                 </div>
                                 <div class="submission-detail">
                                     <div class="submission-detail-label">Submitted</div>
