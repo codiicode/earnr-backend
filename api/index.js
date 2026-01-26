@@ -149,7 +149,7 @@ module.exports = async function(req, res) {
           .from('submissions')
           .select('*, users(*), tasks(*)')
           .eq('status', 'APPROVED')
-          .order('approved_at', {ascending: false});
+          .order('created_at', {ascending: false});
 
         var submissions = approvedRes.data || [];
 
@@ -163,7 +163,7 @@ module.exports = async function(req, res) {
         for (var i = 0; i < submissions.length; i++) {
           var sub = submissions[i];
           var reward = sub.tasks?.reward || 0;
-          var approvedAt = sub.approved_at ? new Date(sub.approved_at).getTime() : now;
+          var approvedAt = sub.created_at ? new Date(sub.created_at).getTime() : now;
 
           totalPaidOut += reward;
           if (approvedAt > dayAgo) {
@@ -177,7 +177,7 @@ module.exports = async function(req, res) {
             wallet: sub.users?.wallet_address || '',
             amount: reward,
             task_title: sub.tasks?.title || 'Task',
-            timestamp: sub.approved_at || sub.created_at,
+            timestamp: sub.created_at,
             status: 'completed'
           });
         }
