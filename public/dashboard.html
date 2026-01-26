@@ -2840,6 +2840,12 @@ function showPopup(message, isError) {
                                 <div class="submission-detail-label">Proof</div>
                                 <div class="submission-detail-value"><a href="${sub.proof_url}" target="_blank">View</a></div>
                             </div>
+                            ${sub.tx_hash ? `
+                            <div class="submission-detail" style="grid-column: 1 / -1;">
+                                <div class="submission-detail-label">Payment TX</div>
+                                <div class="submission-detail-value"><a href="https://solscan.io/tx/${sub.tx_hash}" target="_blank" style="word-break: break-all;">${sub.tx_hash.slice(0,20)}...</a></div>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                 `).join('');
