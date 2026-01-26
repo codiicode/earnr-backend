@@ -5,7 +5,7 @@ const path = require('path');
 
 // IMPORTANT: Must use service_role key (not anon key) to bypass RLS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const CODE_VERSION = 'v4-RAWSQL-2026-01-26';
+const CODE_VERSION = 'v6-DIRECT-2026-01-26';
 
 // Decode JWT to check if it's service_role or anon key
 function getKeyRole(jwt) {
@@ -363,97 +363,114 @@ module.exports = async function(req, res) {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
 
       var subId = p.split('/')[4];
-      console.log('APPROVE v5-RPC: Starting for ID:', subId);
+      console.log('APPROVE v6: Starting for ID:', subId);
+      console.log('APPROVE v6: Key role:', KEY_ROLE);
 
-      // Get submission info first for reward/user data
-      var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
-      if (sub.error || !sub.data) {
-        return res.status(404).json({error: 'Submission not found', code: 'NOT_FOUND'});
+      // Step 1: Get current submission
+      var sub = await supabase.from('submissions').select('*, tasks(*), users(*)').eq('id', subId).single();
+      console.log('APPROVE v6: Fetch result:', JSON.stringify({data: sub.data?.status, error: sub.error}));
+
+      if (sub.error) {
+        return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message, step: 'fetch'});
+      }
+      if (!sub.data) {
+        return res.status(404).json({error: 'Submission not found', step: 'fetch'});
       }
 
+      var currentStatus = sub.data.status;
       var reward = sub.data.tasks?.reward || 0;
+      console.log('APPROVE v6: Current status:', currentStatus, 'Reward:', reward);
 
-      // Use the database function to approve - this runs directly in PostgreSQL
-      console.log('APPROVE v5-RPC: Calling approve_submission RPC...');
-      var rpcResult = await supabase.rpc('approve_submission', { submission_id: subId });
+      if (currentStatus !== 'PENDING') {
+        return res.status(400).json({error: 'Already processed', currentStatus: currentStatus});
+      }
 
-      console.log('APPROVE v5-RPC: RPC result:', JSON.stringify(rpcResult));
+      // Step 2: Do the UPDATE - simple and direct
+      console.log('APPROVE v6: Executing UPDATE...');
+      var updateResult = await supabase
+        .from('submissions')
+        .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+        .eq('id', subId)
+        .select();
 
-      if (rpcResult.error) {
-        console.error('APPROVE v5-RPC: RPC error:', rpcResult.error);
+      console.log('APPROVE v6: Update result:', JSON.stringify(updateResult));
+
+      if (updateResult.error) {
         return res.status(500).json({
-          error: 'Database function failed: ' + rpcResult.error.message,
-          code: 'RPC_ERROR',
-          details: rpcResult.error
+          error: 'UPDATE failed: ' + updateResult.error.message,
+          step: 'update',
+          details: updateResult.error
         });
       }
 
-      var result = rpcResult.data;
-      console.log('APPROVE v5-RPC: Function returned:', result);
-
-      // Check if function returned an error
-      if (result.error) {
-        return res.status(400).json({
-          error: result.error,
-          code: 'FUNCTION_ERROR',
-          currentStatus: result.status
-        });
-      }
-
-      // Verify the update worked
-      if (result.after !== 'APPROVED') {
+      // Check if update returned any rows
+      if (!updateResult.data || updateResult.data.length === 0) {
         return res.status(500).json({
-          error: 'Function did not set status to APPROVED',
-          code: 'STATUS_NOT_SET',
-          result: result
+          error: 'UPDATE returned no rows - the row was not updated',
+          step: 'update',
+          hint: 'This usually means RLS is blocking the update. Make sure you are using the service_role key.',
+          keyRole: KEY_ROLE
         });
       }
 
-      // Double-check with a fresh read
-      await new Promise(r => setTimeout(r, 500));
-      var verifyRead = await supabase.from('submissions').select('id, status').eq('id', subId).single();
-      console.log('APPROVE v5-RPC: Verify read after 500ms:', verifyRead.data?.status);
+      var updatedStatus = updateResult.data[0].status;
+      console.log('APPROVE v6: Update returned status:', updatedStatus);
 
-      if (verifyRead.data?.status !== 'APPROVED') {
+      if (updatedStatus !== 'APPROVED') {
         return res.status(500).json({
-          error: 'CRITICAL: Status reverted after RPC! Database has: ' + verifyRead.data?.status,
-          code: 'STATUS_REVERTED_AFTER_RPC',
-          rpcResult: result,
-          verifyResult: verifyRead.data?.status,
-          hint: 'There is definitely a trigger or policy reverting this. Check Supabase > Database > Triggers'
+          error: 'UPDATE did not change status to APPROVED',
+          step: 'update',
+          returnedStatus: updatedStatus
         });
       }
 
-      // Update user stats
+      // Step 3: Verify with a fresh read
+      console.log('APPROVE v6: Verifying with fresh read...');
+      var verifyResult = await supabase.from('submissions').select('status').eq('id', subId).single();
+      console.log('APPROVE v6: Verify result:', JSON.stringify(verifyResult));
+
+      if (verifyResult.data?.status !== 'APPROVED') {
+        return res.status(500).json({
+          error: 'CRITICAL: Status reverted immediately! Update showed ' + updatedStatus + ' but read shows ' + verifyResult.data?.status,
+          step: 'verify',
+          hint: 'There may be a database trigger reverting the status'
+        });
+      }
+
+      // Step 4: Update user stats (non-critical)
       try {
-        await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
+        await supabase.from('users').update({
+          total_earned: (sub.data.users?.total_earned || 0) + reward,
+          completed_tasks: (sub.data.users?.completed_tasks || 0) + 1
+        }).eq('id', sub.data.user_id);
       } catch (e) {
-        console.log('APPROVE v5-RPC: Stats update failed (non-critical):', e.message);
+        console.log('APPROVE v6: User stats update failed:', e.message);
       }
 
-      // Add activity
+      // Step 5: Add activity (non-critical)
       try {
-        var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
         await supabase.from('activity').insert({
           user_id: sub.data.user_id,
-          username: userInfo.data?.username,
-          avatar_url: userInfo.data?.avatar_url,
+          username: sub.data.users?.username,
+          avatar_url: sub.data.users?.avatar_url,
           type: 'TASK_COMPLETED',
           task_name: sub.data.tasks?.title,
           amount: reward
         });
       } catch (e) {
-        console.log('APPROVE v5-RPC: Activity insert failed (non-critical):', e.message);
+        console.log('APPROVE v6: Activity insert failed:', e.message);
       }
 
+      console.log('APPROVE v6: SUCCESS!');
       return res.status(200).json({
         success: true,
-        message: 'Submission approved via database function',
+        message: 'Submission approved successfully',
         submission: { id: subId, status: 'APPROVED' },
         debug: {
-          codeVersion: 'v5-RPC',
-          rpcResult: result,
-          verifyStatus: verifyRead.data?.status,
+          version: 'v6-DIRECT',
+          keyRole: KEY_ROLE,
+          updateReturnedStatus: updatedStatus,
+          verifyStatus: verifyResult.data?.status,
           reward: reward
         }
       });
