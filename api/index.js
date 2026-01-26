@@ -238,6 +238,11 @@ module.exports = async function(req, res) {
         status: 'PENDING'
       }).select().single();
 
+      if (r.error) {
+        console.error('Submission insert error:', r.error);
+        return res.status(500).json({error: 'Failed to save submission: ' + r.error.message});
+      }
+
       return res.status(200).json({submission: r.data});
     }
 
