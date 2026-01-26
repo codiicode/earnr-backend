@@ -1632,12 +1632,12 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <span class="card-title">Top Hunters This Week</span>
+                            <span class="card-title">Top Earnrs This Week</span>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
                                 <div class="empty-state-icon">-</div>
-                                <div class="empty-state-text">No hunters yet</div>
+                                <div class="empty-state-text">No earnrs yet</div>
                                 <div class="empty-state-sub">Leaderboard updates weekly</div>
                             </div>
                         </div>
@@ -2558,14 +2558,14 @@ function showPopup(message, isError) {
                                 <div class="lb-name">@${user.username}</div>
                                 <div class="lb-tasks">${user.tasks_completed} tasks</div>
                             </div>
-                            <div class="lb-earnings">${formatNumber(user.total_earned)}</div>
+                            <div class="lb-earnings">$${formatNumber(user.total_earned)}</div>
                         </div>
                     `).join('');
                 } else {
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">-</div>
-                            <div class="empty-state-text">No hunters yet</div>
+                            <div class="empty-state-text">No earnrs yet</div>
                             <div class="empty-state-sub">Leaderboard updates weekly</div>
                         </div>
                     `;
