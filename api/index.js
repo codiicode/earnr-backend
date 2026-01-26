@@ -5,14 +5,32 @@ const path = require('path');
 
 // IMPORTANT: Must use service_role key (not anon key) to bypass RLS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+
+// Decode JWT to check if it's service_role or anon key
+function getKeyRole(jwt) {
+  try {
+    if (!jwt) return 'missing';
+    const parts = jwt.split('.');
+    if (parts.length !== 3) return 'invalid_format';
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    return payload.role || 'unknown';
+  } catch (e) {
+    return 'decode_error';
+  }
+}
+
+const KEY_ROLE = getKeyRole(SUPABASE_KEY);
+const IS_SERVICE_KEY = KEY_ROLE === 'service_role';
+
+// Log warning if using wrong key type
+console.log('Supabase key role:', KEY_ROLE, IS_SERVICE_KEY ? '(GOOD)' : '(WARNING: Should be service_role!)');
+
 const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
   }
 });
-// Log key type for debugging (first 10 chars only for security)
-console.log('Supabase key prefix:', SUPABASE_KEY.substring(0, 10) + '...');
 const BASE_URL = String(process.env.BASE_URL || 'https://earnr.xyz').trim();
 const X_CLIENT_ID = String(process.env.X_CLIENT_ID || '').trim();
 const X_CLIENT_SECRET = String(process.env.X_CLIENT_SECRET || '').trim();
@@ -232,14 +250,13 @@ module.exports = async function(req, res) {
     // Debug endpoint to check database connection and key type
     if (p === '/api/admin/debug' && req.method === 'GET') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
-      var keyType = SUPABASE_KEY.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6') ? 'looks like supabase key' : 'unknown format';
-      var isServiceKey = SUPABASE_KEY.includes('service_role') || SUPABASE_KEY.length > 200;
       var testResult = await supabase.from('submissions').select('id, status').limit(1);
       return res.status(200).json({
+        keyRole: KEY_ROLE,
+        isServiceKey: IS_SERVICE_KEY,
         keyPrefix: SUPABASE_KEY.substring(0, 20) + '...',
         keyLength: SUPABASE_KEY.length,
-        keyType: keyType,
-        likelyServiceKey: isServiceKey,
+        problem: !IS_SERVICE_KEY ? 'WRONG KEY! You are using the anon key. Updates will NOT persist. Go to Supabase Dashboard > Settings > API > Copy the service_role key > Update SUPABASE_SERVICE_KEY in Vercel' : 'None detected',
         testQuery: testResult.error ? testResult.error.message : 'OK',
         testData: testResult.data
       });
@@ -247,9 +264,21 @@ module.exports = async function(req, res) {
 
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/approve$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+
+      // Check if using service_role key - CRITICAL for updates to work
+      if (!IS_SERVICE_KEY) {
+        console.error('APPROVE: WRONG KEY TYPE! Using:', KEY_ROLE, 'but need service_role');
+        return res.status(500).json({
+          error: 'Database updates are blocked because you are using the WRONG Supabase key!',
+          currentKeyRole: KEY_ROLE,
+          requiredKeyRole: 'service_role',
+          fix: 'Go to Supabase Dashboard > Settings > API > Copy the "service_role" secret key > Go to Vercel > Settings > Environment Variables > Update SUPABASE_SERVICE_KEY with the new key > Redeploy'
+        });
+      }
+
       var subId = p.split('/')[4];
       console.log('APPROVE: Starting approval for submission ID:', subId);
-      console.log('APPROVE: Using key prefix:', SUPABASE_KEY.substring(0, 15) + '...');
+      console.log('APPROVE: Using key role:', KEY_ROLE);
 
       // Get submission with task info
       var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
@@ -339,6 +368,18 @@ module.exports = async function(req, res) {
 
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/reject$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+
+      // Check if using service_role key
+      if (!IS_SERVICE_KEY) {
+        console.error('REJECT: WRONG KEY TYPE! Using:', KEY_ROLE, 'but need service_role');
+        return res.status(500).json({
+          error: 'Database updates are blocked because you are using the WRONG Supabase key!',
+          currentKeyRole: KEY_ROLE,
+          requiredKeyRole: 'service_role',
+          fix: 'Go to Supabase Dashboard > Settings > API > Copy the "service_role" secret key > Go to Vercel > Settings > Environment Variables > Update SUPABASE_SERVICE_KEY with the new key > Redeploy'
+        });
+      }
+
       var subId = p.split('/')[4];
       console.log('REJECT: Starting rejection for submission ID:', subId);
 

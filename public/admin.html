@@ -576,8 +576,12 @@
 
                 if (data.error) {
                     let errorMsg = 'Error: ' + data.error;
-                    if (data.debug) {
-                        errorMsg += '\n\nDebug info:\n' + JSON.stringify(data.debug, null, 2);
+                    if (data.fix) {
+                        errorMsg += '\n\nHow to fix:\n' + data.fix;
+                    }
+                    if (data.currentKeyRole) {
+                        errorMsg += '\n\nCurrent key role: ' + data.currentKeyRole;
+                        errorMsg += '\nRequired key role: ' + data.requiredKeyRole;
                     }
                     alert(errorMsg);
                     if (card) card.style.opacity = '1';
