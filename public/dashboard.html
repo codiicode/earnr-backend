@@ -881,20 +881,6 @@
             font-size: 1.5rem;
             font-weight: 600;
             color: var(--green);
-            display: flex;
-            align-items: baseline;
-            gap: 0.35rem;
-        }
-
-        .task-reward-value .currency {
-            font-size: 0.9rem;
-            opacity: 0.7;
-        }
-
-        .task-reward-token {
-            font-size: 0.6rem;
-            color: var(--gray);
-            letter-spacing: 0.1em;
         }
 
         .task-content h3 {
@@ -2024,8 +2010,7 @@
                     <div class="task-card" data-task-id="${task.id}">
                         <div class="task-reward">
                             <div class="task-reward-label">Reward</div>
-                            <div class="task-reward-value"><span class="currency">$</span>${formatNumber(task.reward)}</div>
-                            <div class="task-reward-token">USDC</div>
+                            <div class="task-reward-value">$${formatNumber(task.reward)}</div>
                         </div>
                         <div class="task-content">
                             <h3>${task.title}</h3>
