@@ -1706,25 +1706,48 @@
 
             <!-- earnrs -->
             <div class="page" id="earnrs">
-                <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:3rem">
+                <div class="stats-grid" id="earnrs-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:2rem">
                     <div class="stat-card">
-                        <div class="stat-label">Total earnrs</div>
-                        <div class="stat-value">0</div>
+                        <div class="stat-label">Total Earnrs</div>
+                        <div class="stat-value" id="stat-total-earnrs">0</div>
                         <div class="stat-change">registered</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Active Today</div>
-                        <div class="stat-value">0</div>
-                        <div class="stat-change">online now</div>
+                        <div class="stat-label">Online Now</div>
+                        <div class="stat-value" id="stat-online-now">0</div>
+                        <div class="stat-change">active</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">New Signups</div>
-                        <div class="stat-value">0</div>
-                        <div class="stat-change">last 24 hours</div>
+                        <div class="stat-label">New Today</div>
+                        <div class="stat-value" id="stat-new-today">0</div>
+                        <div class="stat-change">last 24h</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Paid Out</div>
+                        <div class="stat-value" id="stat-total-paid">0</div>
+                        <div class="stat-change">USDC</div>
                     </div>
                 </div>
 
-                <div class="card" style="margin-bottom:3rem">
+                <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:2rem">
+                    <div class="stat-card">
+                        <div class="stat-label">Tasks Completed</div>
+                        <div class="stat-value" id="stat-total-tasks">0</div>
+                        <div class="stat-change">total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Avg per Earnr</div>
+                        <div class="stat-value" id="stat-avg-earned">0</div>
+                        <div class="stat-change">USDC earned</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Top Earner</div>
+                        <div class="stat-value" id="stat-top-earner">-</div>
+                        <div class="stat-change" id="stat-top-earner-amount">-</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:2rem">
                     <div class="card-header">
                         <span class="card-title">Recent Signups</span>
                         <div class="live-badge">
@@ -1740,11 +1763,13 @@
                     </div>
                 </div>
 
-                <h3 style="font-size:0.9rem;margin-bottom:1.5rem;font-weight:500;">All earnrs</h3>
-                <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
-                    <div class="empty-state-icon">-</div>
-                    <div class="empty-state-text">No earnrs registered</div>
-                    <div class="empty-state-sub">Connect with X to become the first earnr</div>
+                <h3 style="font-size:0.9rem;margin-bottom:1.5rem;font-weight:500;">All Earnrs</h3>
+                <div id="earnrs-list" class="earnrs-grid">
+                    <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);grid-column:1/-1;">
+                        <div class="empty-state-icon">-</div>
+                        <div class="empty-state-text">No earnrs registered</div>
+                        <div class="empty-state-sub">Connect with X to become the first earnr</div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -2585,63 +2610,87 @@ function showPopup(message, isError) {
         // SUBMISSIONS
         // ============================================
 
+        let userSubmissions = [];
+        let submissionFilter = 'ALL';
+
         async function loadSubmissions() {
             if (!currentUser) return;
-            
+
             try {
                 const res = await fetch('/api/submissions', { credentials: 'include' });
                 const data = await res.json();
-                
-                const container = document.querySelector('#submissions');
-                const tabsHtml = `
-                    <div class="tabs">
-                        <button class="tab-btn active">All (${data.submissions?.length || 0})</button>
-                        <button class="tab-btn">Pending (${data.submissions?.filter(s => s.status === 'PENDING').length || 0})</button>
-                        <button class="tab-btn">Approved (${data.submissions?.filter(s => s.status === 'APPROVED').length || 0})</button>
-                        <button class="tab-btn">Rejected (${data.submissions?.filter(s => s.status === 'REJECTED').length || 0})</button>
-                    </div>
-                `;
-                
-                if (data.submissions && data.submissions.length > 0) {
-                    const subsHtml = data.submissions.map(sub => `
-                        <div class="submission-card">
-                            <div class="submission-header">
-                                <span class="submission-task">${sub.tasks?.title || 'Task'}</span>
-                                <span class="submission-status ${sub.status.toLowerCase()}">${sub.status}</span>
-                            </div>
-                            <div class="submission-body">
-                                <div class="submission-detail">
-                                    <div class="submission-detail-label">Reward</div>
-                                    <div class="submission-detail-value reward">${sub.tasks?.reward?.toLocaleString() || 0} USDC</div>
-                                </div>
-                                <div class="submission-detail">
-                                    <div class="submission-detail-label">Submitted</div>
-                                    <div class="submission-detail-value">${new Date(sub.created_at).toLocaleDateString()}</div>
-                                </div>
-                                <div class="submission-detail">
-                                    <div class="submission-detail-label">Status</div>
-                                    <div class="submission-detail-value">${sub.status}</div>
-                                </div>
-                                <div class="submission-detail">
-                                    <div class="submission-detail-label">Proof</div>
-                                    <div class="submission-detail-value"><a href="${sub.proof_url}" target="_blank">View</a></div>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('');
-                    
-                    container.innerHTML = tabsHtml + subsHtml;
-                } else {
-                    container.innerHTML = tabsHtml + `
-                        <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
-                            <div class="empty-state-icon">-</div>
-                            <div class="empty-state-text">No submissions yet</div>
-                            <div class="empty-state-sub">Complete a task to see it here</div>
-                        </div>
-                    `;
-                }
+                userSubmissions = data.submissions || [];
+                renderSubmissions();
             } catch (err) {
                 console.error('Failed to load submissions:', err);
+            }
+        }
+
+        function filterUserSubmissions(status, btn) {
+            submissionFilter = status;
+            document.querySelectorAll('#submissions .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderSubmissions();
+        }
+
+        function renderSubmissions() {
+            const container = document.querySelector('#submissions');
+            const allCount = userSubmissions.length;
+            const pendingCount = userSubmissions.filter(s => s.status === 'PENDING').length;
+            const approvedCount = userSubmissions.filter(s => s.status === 'APPROVED').length;
+            const rejectedCount = userSubmissions.filter(s => s.status === 'REJECTED').length;
+
+            const tabsHtml = `
+                <div class="tabs">
+                    <button class="tab-btn ${submissionFilter === 'ALL' ? 'active' : ''}" onclick="filterUserSubmissions('ALL', this)">All (${allCount})</button>
+                    <button class="tab-btn ${submissionFilter === 'PENDING' ? 'active' : ''}" onclick="filterUserSubmissions('PENDING', this)">Pending (${pendingCount})</button>
+                    <button class="tab-btn ${submissionFilter === 'APPROVED' ? 'active' : ''}" onclick="filterUserSubmissions('APPROVED', this)">Approved (${approvedCount})</button>
+                    <button class="tab-btn ${submissionFilter === 'REJECTED' ? 'active' : ''}" onclick="filterUserSubmissions('REJECTED', this)">Rejected (${rejectedCount})</button>
+                </div>
+            `;
+
+            let filtered = userSubmissions;
+            if (submissionFilter !== 'ALL') {
+                filtered = userSubmissions.filter(s => s.status === submissionFilter);
+            }
+
+            if (filtered.length > 0) {
+                const subsHtml = filtered.map(sub => `
+                    <div class="submission-card">
+                        <div class="submission-header">
+                            <span class="submission-task">${sub.tasks?.title || 'Task'}</span>
+                            <span class="submission-status ${sub.status.toLowerCase()}">${sub.status}</span>
+                        </div>
+                        <div class="submission-body">
+                            <div class="submission-detail">
+                                <div class="submission-detail-label">Reward</div>
+                                <div class="submission-detail-value reward">${sub.tasks?.reward?.toLocaleString() || 0} USDC</div>
+                            </div>
+                            <div class="submission-detail">
+                                <div class="submission-detail-label">Submitted</div>
+                                <div class="submission-detail-value">${new Date(sub.created_at).toLocaleDateString()}</div>
+                            </div>
+                            <div class="submission-detail">
+                                <div class="submission-detail-label">Status</div>
+                                <div class="submission-detail-value">${sub.status}</div>
+                            </div>
+                            <div class="submission-detail">
+                                <div class="submission-detail-label">Proof</div>
+                                <div class="submission-detail-value"><a href="${sub.proof_url}" target="_blank">View</a></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = tabsHtml + subsHtml;
+            } else {
+                container.innerHTML = tabsHtml + `
+                    <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
+                        <div class="empty-state-icon">-</div>
+                        <div class="empty-state-text">No ${submissionFilter.toLowerCase()} submissions</div>
+                        <div class="empty-state-sub">${submissionFilter === 'ALL' ? 'Complete a task to see it here' : 'No submissions with this status'}</div>
+                    </div>
+                `;
             }
         }
 
@@ -2653,53 +2702,78 @@ function showPopup(message, isError) {
             try {
                 const res = await fetch('/api/earnrs');
                 const data = await res.json();
-                
+                const earnrs = data.earnrs || [];
+
                 // Update stats
                 const statsRes = await fetch('/api/stats');
                 const stats = await statsRes.json();
-                
-                const statsGrid = document.querySelector('#earnrs .stats-grid');
-                if (statsGrid) {
-                    statsGrid.innerHTML = `
-                        <div class="stat-card">
-                            <div class="stat-label">Total earnrs</div>
-                            <div class="stat-value">${stats.totalUsers || 0}</div>
-                            <div class="stat-change">registered</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Active Today</div>
-                            <div class="stat-value">${stats.onlineUsers || 0}</div>
-                            <div class="stat-change">online now</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">New Signups</div>
-                            <div class="stat-value">${data.earnrs?.filter(h => new Date(h.created_at) > new Date(Date.now() - 86400000)).length || 0}</div>
-                            <div class="stat-change">last 24 hours</div>
-                        </div>
-                    `;
+
+                // Calculate stats
+                const totalEarnrs = earnrs.length;
+                const onlineNow = stats.onlineUsers || 0;
+                const newToday = earnrs.filter(h => new Date(h.created_at) > new Date(Date.now() - 86400000)).length;
+                const totalPaid = earnrs.reduce((sum, e) => sum + (e.total_earned || 0), 0);
+                const totalTasks = earnrs.reduce((sum, e) => sum + (e.tasks_completed || 0), 0);
+                const avgEarned = totalEarnrs > 0 ? Math.round(totalPaid / totalEarnrs) : 0;
+                const topEarner = earnrs.length > 0 ? earnrs.reduce((max, e) => (e.total_earned || 0) > (max.total_earned || 0) ? e : max, earnrs[0]) : null;
+
+                // Update stat values
+                document.getElementById('stat-total-earnrs').textContent = totalEarnrs;
+                document.getElementById('stat-online-now').textContent = onlineNow;
+                document.getElementById('stat-new-today').textContent = newToday;
+                document.getElementById('stat-total-paid').textContent = formatNumber(totalPaid);
+                document.getElementById('stat-total-tasks').textContent = totalTasks;
+                document.getElementById('stat-avg-earned').textContent = formatNumber(avgEarned);
+
+                if (topEarner) {
+                    document.getElementById('stat-top-earner').textContent = '@' + topEarner.username;
+                    document.getElementById('stat-top-earner-amount').textContent = formatNumber(topEarner.total_earned) + ' USDC';
                 }
-                
+
+                // Update recent signups
+                const signupsFeed = document.getElementById('signupsFeed');
+                const recentSignups = earnrs.slice(0, 5);
+                if (recentSignups.length > 0) {
+                    signupsFeed.innerHTML = recentSignups.map(earnr => `
+                        <div class="activity-item" style="cursor:pointer" onclick="viewUserProfile('${earnr.id}')">
+                            <div class="activity-avatar">
+                                ${earnr.avatar_url ? `<img src="${earnr.avatar_url}" alt="">` : ''}
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-text">
+                                    <strong>@${earnr.username}</strong> joined EARNR
+                                </div>
+                                <div class="activity-meta">${timeAgo(earnr.created_at)}</div>
+                            </div>
+                            <div class="activity-badge join">NEW</div>
+                        </div>
+                    `).join('');
+                }
+
                 // Update earnrs grid
-                const earnrsContainer = document.querySelector('#earnrs .earnrs-grid') || document.querySelector('#earnrs h3')?.nextElementSibling;
-                
-                if (data.earnrs && data.earnrs.length > 0) {
-                    const earnrsHtml = data.earnrs.map(earnr => `
-                        <div class="earnr-card">
+                const earnrsContainer = document.getElementById('earnrs-list');
+                if (earnrs.length > 0) {
+                    earnrsContainer.innerHTML = earnrs.map(earnr => `
+                        <div class="earnr-card" style="cursor:pointer" onclick="viewUserProfile('${earnr.id}')">
                             <div class="earnr-avatar">
                                 ${earnr.avatar_url ? `<img src="${earnr.avatar_url}" alt="">` : ''}
                             </div>
                             <div class="earnr-name">${earnr.display_name || earnr.username}</div>
                             <div class="earnr-handle">@${earnr.username}</div>
                             <div class="earnr-stats">
-                                <div><span class="earnr-stat-value">${earnr.tasks_completed}</span> tasks</div>
-                                <div><span class="earnr-stat-value">${formatNumber(earnr.total_earned)}</span> earned</div>
+                                <div><span class="earnr-stat-value">${earnr.tasks_completed || 0}</span> tasks</div>
+                                <div><span class="earnr-stat-value">${formatNumber(earnr.total_earned)}</span> USDC</div>
                             </div>
                         </div>
                     `).join('');
-                    
-                    if (earnrsContainer) {
-                        earnrsContainer.outerHTML = `<div class="earnrs-grid">${earnrsHtml}</div>`;
-                    }
+                } else {
+                    earnrsContainer.innerHTML = `
+                        <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);grid-column:1/-1;">
+                            <div class="empty-state-icon">-</div>
+                            <div class="empty-state-text">No earnrs registered</div>
+                            <div class="empty-state-sub">Connect with X to become the first earnr</div>
+                        </div>
+                    `;
                 }
             } catch (err) {
                 console.error('Failed to load earnrs:', err);
