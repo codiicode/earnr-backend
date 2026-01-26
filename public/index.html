@@ -222,19 +222,8 @@
             animation: fadeInUp 0.8s ease;
         }
 
-        .badge-content {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-        }
-
         .badge-main {
             font-weight: 600;
-        }
-
-        .badge-ca {
-            color: var(--gray-light);
-            font-size: 0.55rem;
         }
 
         .hero-badge-dot {
@@ -642,6 +631,15 @@
             color: var(--green);
         }
 
+        .footer-ca {
+            font-size: 0.6rem;
+            color: var(--gray);
+            letter-spacing: 0.05em;
+            padding: 0.4rem 0.8rem;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+        }
+
         /* Animated Counter */
         .counter {
             display: inline-block;
@@ -716,10 +714,7 @@
     <section class="hero">
         <div class="hero-badge">
             <span class="hero-badge-dot"></span>
-            <div class="badge-content">
-                <span class="badge-main">LIVE ON SOLANA</span>
-                <span class="badge-ca">CA: XXXXX</span>
-            </div>
+            <span class="badge-main">LIVE ON SOLANA</span>
         </div>
         <h1>Complete tasks.<br>Get <span>paid.</span></h1>
         <p class="hero-sub">Time to start getting paid for your engagement. Earn USDC for completing simple social media tasks.</p>
@@ -924,6 +919,7 @@
             <span class="logo-dot"></span>
             EARNR.XYZ
         </div>
+        <div class="footer-ca">CA: XXXXX</div>
         <div>© 2025 EARNR</div>
     </footer>
 

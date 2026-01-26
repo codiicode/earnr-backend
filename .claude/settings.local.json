@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd live Solana blockchain payouts page\n\n- New /api/payouts endpoint fetches real USDC transactions from payout wallet\n- Payouts page shows live treasury balance, total paid out, transaction count\n- Live transactions feed with links to Solscan for each TX\n- 30-day payout volume chart with daily breakdown\n- Auto-refresh every 30 seconds\n- Added PAYOUT_WALLET_ADDRESS env variable\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git config:*)",
+      "Bash(git push:*)",
+      "Bash(curl:*)",
+      "Bash(git commit:*)",
+      "Bash(git -C \"C:\\\\Users\\\\46735\\\\Desktop\\\\earnr.xyz\" status)",
+      "Bash(git pull:*)",
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)"
+    ]
+  }
+}
