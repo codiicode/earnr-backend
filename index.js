@@ -296,6 +296,15 @@ module.exports = async function(req, res) {
       if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
 
       await supabase.from('submissions').update({status: 'REJECTED', rejected_at: new Date().toISOString()}).eq('id', subId);
+
+      // Decrement slots_filled on the task to free up the slot
+      if (sub.data.task_id) {
+        var taskResult = await supabase.from('tasks').select('slots_filled').eq('id', sub.data.task_id).single();
+        if (taskResult.data && taskResult.data.slots_filled > 0) {
+          await supabase.from('tasks').update({ slots_filled: taskResult.data.slots_filled - 1 }).eq('id', sub.data.task_id);
+        }
+      }
+
       return res.status(200).json({success: true});
     }
 

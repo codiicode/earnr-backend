@@ -509,6 +509,19 @@
             border-color: var(--white);
         }
 
+        .btn-disabled {
+            background: var(--gray-dark);
+            border-color: var(--border);
+            color: var(--gray);
+            font-weight: 500;
+            cursor: not-allowed;
+        }
+
+        .btn-disabled:hover {
+            background: var(--gray-dark);
+            border-color: var(--border);
+        }
+
         .btn-x {
             background: var(--white);
             border-color: var(--white);
@@ -1548,9 +1561,9 @@
                     <a href="/how-it-works.html" class="nav-item">
                         <span class="nav-icon">-</span>How It Works
                     </a>
-                    <div class="nav-item">
+                    <a href="https://pump.fun" target="_blank" class="nav-item">
                         <span class="nav-icon">-</span>Buy $EARNR
-                    </div>
+                    </a>
                 </div>
             </nav>
             <div class="sidebar-footer">
@@ -1651,12 +1664,12 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <span class="card-title">Top Hunters This Week</span>
+                            <span class="card-title">Top Earnrs This Week</span>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
                                 <div class="empty-state-icon">-</div>
-                                <div class="empty-state-text">No hunters yet</div>
+                                <div class="empty-state-text">No earnrs yet</div>
                                 <div class="empty-state-sub">Leaderboard updates weekly</div>
                             </div>
                         </div>
@@ -1673,9 +1686,9 @@
                             <span class="filter-label">Category:</span>
                             <div class="filters">
                                 <button class="filter-btn active" data-filter="category" data-value="ALL">ALL</button>
-                                <button class="filter-btn" data-filter="category" data-value="SOCIAL">SOCIAL</button>
-                                <button class="filter-btn" data-filter="category" data-value="CONTENT">CONTENT</button>
-                                <button class="filter-btn" data-filter="category" data-value="COMMUNITY">COMMUNITY</button>
+                                <button class="filter-btn" data-filter="category" data-value="X">X</button>
+                                <button class="filter-btn" data-filter="category" data-value="TIKTOK">TIKTOK</button>
+                                <button class="filter-btn" data-filter="category" data-value="YOUTUBE">YOUTUBE</button>
                             </div>
                         </div>
                         <div class="filter-group">
@@ -2005,6 +2018,23 @@
                     const minFollowers = task.min_followers || 0;
                     const meetsRequirement = minFollowers === 0 || userFollowers >= minFollowers;
                     const slotsLeft = task.slots_total - (task.slots_filled || 0);
+                    const alreadySubmitted = userSubmittedTaskIds.has(task.id);
+
+                    // Determine button state
+                    let buttonClass = 'btn btn-primary';
+                    let buttonText = 'SUBMIT';
+                    let buttonOnClick = `onclick="openSubmitModal('${task.id}')"`;
+                    let buttonTitle = '';
+
+                    if (alreadySubmitted) {
+                        buttonClass = 'btn btn-disabled';
+                        buttonText = 'SUBMITTED';
+                        buttonOnClick = '';
+                        buttonTitle = 'title="You have already submitted this task"';
+                    } else if (!meetsRequirement) {
+                        buttonClass = 'btn btn-primary disabled';
+                        buttonTitle = 'title="You don\'t meet the follower requirement"';
+                    }
 
                     return `
                     <div class="task-card" data-task-id="${task.id}">
@@ -2030,7 +2060,7 @@
                         </div>
                         <div class="task-action">
                             ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
-                            <button class="btn btn-primary ${!meetsRequirement ? 'disabled' : ''}" onclick="openSubmitModal('${task.id}')" ${!meetsRequirement ? 'title="You don\'t meet the follower requirement"' : ''}>SUBMIT</button>
+                            <button class="${buttonClass}" ${buttonOnClick} ${buttonTitle}>${buttonText}</button>
                         </div>
                     </div>
                 `}).join('');
@@ -2560,14 +2590,14 @@ function showPopup(message, isError) {
                                 <div class="lb-name">@${user.username}</div>
                                 <div class="lb-tasks">${user.tasks_completed} tasks</div>
                             </div>
-                            <div class="lb-earnings">${formatNumber(user.total_earned)}</div>
+                            <div class="lb-earnings">$${formatNumber(user.total_earned)}</div>
                         </div>
                     `).join('');
                 } else {
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">-</div>
-                            <div class="empty-state-text">No hunters yet</div>
+                            <div class="empty-state-text">No earnrs yet</div>
                             <div class="empty-state-sub">Leaderboard updates weekly</div>
                         </div>
                     `;
@@ -2582,6 +2612,7 @@ function showPopup(message, isError) {
         // ============================================
 
         let allAvailableTasks = [];
+        let userSubmittedTaskIds = new Set();
 
         async function loadTasks() {
             try {
@@ -2593,6 +2624,15 @@ function showPopup(message, isError) {
 
                 // Store tasks for later reference
                 allAvailableTasks = data.tasks || [];
+
+                // Fetch user's submissions to check which tasks are already submitted
+                if (currentUser) {
+                    try {
+                        const subRes = await fetch('/api/submissions', { credentials: 'include' });
+                        const subData = await subRes.json();
+                        userSubmittedTaskIds = new Set((subData.submissions || []).map(s => s.task_id));
+                    } catch (e) { /* ignore */ }
+                }
 
                 // Render with current filters
                 renderFilteredTasks();
@@ -2969,6 +3009,47 @@ function showPopup(message, isError) {
         }
 
         init();
+    </script>
+
+    <!-- Contract Address Badge -->
+    <div id="caBadge" style="
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        background: var(--black-light);
+        border: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    ">
+        <span style="color: var(--gray);">CA:</span>
+        <span id="caValue" onclick="copyCA()" style="color: var(--green); cursor: pointer;" title="Click to copy">Coming Soon</span>
+    </div>
+
+    <script>
+        function copyCA() {
+            const caText = document.getElementById('caValue').textContent;
+            if (caText === 'Coming Soon') {
+                // Show tooltip that CA is not available yet
+                const badge = document.getElementById('caBadge');
+                const original = document.getElementById('caValue').textContent;
+                document.getElementById('caValue').textContent = 'Not available yet';
+                setTimeout(() => {
+                    document.getElementById('caValue').textContent = original;
+                }, 1500);
+                return;
+            }
+            navigator.clipboard.writeText(caText).then(() => {
+                const original = document.getElementById('caValue').textContent;
+                document.getElementById('caValue').textContent = 'Copied!';
+                setTimeout(() => {
+                    document.getElementById('caValue').textContent = original;
+                }, 1500);
+            });
+        }
     </script>
 </body>
 </html>
