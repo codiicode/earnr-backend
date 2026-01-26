@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         @font-face {
             font-family: 'Geist Mono';
             src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-Regular.woff2') format('woff2');
@@ -1763,10 +1765,26 @@ if (data.user) {
         }
 async function saveWallet() {
     var wallet = document.getElementById('wallet-input').value.trim();
+    if (!wallet) { showPopup('Please enter a wallet address', true); return; }
     var res = await fetch('/api/wallet', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wallet: wallet})});
-    if (res.ok) alert('Wallet saved!');
-    else alert('Error saving wallet');
+    if (res.ok) showPopup('Your wallet is now saved.<br><span style="color:var(--primary);font-size:1.5rem;">Congratulations on becoming an EARNR!</span>');
+    else showPopup('Error saving wallet', true);
 }
+
+function showPopup(message, isError) {
+    var existing = document.getElementById('earnr-popup');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'earnr-popup';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn 0.3s ease';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--card-bg);border:1px solid var(--primary);border-radius:16px;padding:3rem;text-align:center;max-width:400px;animation:popIn 0.3s ease';
+    box.innerHTML = '<div style="font-size:3rem;margin-bottom:1rem;">' + (isError ? '⚠️' : '🎉') + '</div><div style="font-size:1.1rem;color:var(--white);line-height:1.6;">' + message + '</div><button onclick="document.getElementById(\'earnr-popup\').remove()" style="margin-top:2rem;padding:0.75rem 2rem;background:var(--primary);color:var(--black);border:none;border-radius:8px;font-weight:600;cursor:pointer;">LET\'S GO!</button>';
+    overlay.appendChild(box);
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    document.body.appendChild(overlay);
+}
+
         function updateUIForUser() {
             const btn = document.getElementById('connectBtn');
             
