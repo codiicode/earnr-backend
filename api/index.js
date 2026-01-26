@@ -54,7 +54,19 @@ module.exports = async function(req, res) {
       if(!cookies.session) return null;
       try {
         const result = await supabase.from('users').select('*').eq('id', cookies.session).single();
-        return result.data;
+        if (!result.data) return null;
+
+        // Calculate REAL total_earned and tasks_completed from approved submissions
+        const subsResult = await supabase.from('submissions').select('*, tasks(reward)').eq('user_id', cookies.session).eq('status', 'APPROVED');
+        const approvedSubs = subsResult.data || [];
+        const realTotalEarned = approvedSubs.reduce((sum, s) => sum + (s.tasks?.reward || 0), 0);
+        const realTasksCompleted = approvedSubs.length;
+
+        return {
+          ...result.data,
+          total_earned: realTotalEarned,
+          tasks_completed: realTasksCompleted
+        };
       } catch(e) { return null; }
     }
 
@@ -110,7 +122,19 @@ module.exports = async function(req, res) {
 
     if (p === '/auth/logout') { res.setHeader('Set-Cookie', 'session=; Max-Age=0; Path=/'); res.writeHead(302, { 'Location': '/' }); return res.end(); }
     if (p === '/api/me') { return res.status(200).json({user: await getUser()}); }
-    if (p.startsWith('/api/user/')) { var userId = p.split('/')[3]; var r = await supabase.from('users').select('*').eq('id', userId).single(); return res.status(200).json({user: r.data || null}); }
+    if (p.startsWith('/api/user/')) {
+      var userId = p.split('/')[3];
+      var r = await supabase.from('users').select('*').eq('id', userId).single();
+      if (!r.data) return res.status(200).json({user: null});
+
+      // Calculate REAL total_earned and tasks_completed from approved submissions
+      var subsResult = await supabase.from('submissions').select('*, tasks(reward)').eq('user_id', userId).eq('status', 'APPROVED');
+      var approvedSubs = subsResult.data || [];
+      var realTotalEarned = approvedSubs.reduce(function(sum, s) { return sum + (s.tasks?.reward || 0); }, 0);
+      var realTasksCompleted = approvedSubs.length;
+
+      return res.status(200).json({user: {...r.data, total_earned: realTotalEarned, tasks_completed: realTasksCompleted}});
+    }
     if (p === '/api/stats') {
       var usersRes = await supabase.from('users').select('*', {count: 'exact', head: true});
       var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString();
@@ -130,7 +154,36 @@ module.exports = async function(req, res) {
     }
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
     if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true).order('created_at', {ascending: false}); return res.status(200).json({tasks: r.data || []}); }
-    if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }
+    if (p === '/api/leaderboard') {
+      // Get all users
+      var usersRes = await supabase.from('users').select('*');
+      var users = usersRes.data || [];
+
+      // Get all approved submissions with rewards
+      var subsRes = await supabase.from('submissions').select('user_id, tasks(reward)').eq('status', 'APPROVED');
+      var subs = subsRes.data || [];
+
+      // Calculate real earnings per user
+      var earningsByUser = {};
+      var tasksByUser = {};
+      subs.forEach(function(s) {
+        if (!earningsByUser[s.user_id]) earningsByUser[s.user_id] = 0;
+        if (!tasksByUser[s.user_id]) tasksByUser[s.user_id] = 0;
+        earningsByUser[s.user_id] += (s.tasks?.reward || 0);
+        tasksByUser[s.user_id]++;
+      });
+
+      // Merge real values into users and sort
+      var leaderboard = users.map(function(u) {
+        return {
+          ...u,
+          total_earned: earningsByUser[u.id] || 0,
+          tasks_completed: tasksByUser[u.id] || 0
+        };
+      }).sort(function(a, b) { return b.total_earned - a.total_earned; }).slice(0, 20);
+
+      return res.status(200).json({leaderboard: leaderboard});
+    }
     if (p === '/api/earnrs' || p === '/api/hunters') {
       var r = await supabase.from('users').select('*').order('created_at', {ascending: false});
       if (r.error) {
