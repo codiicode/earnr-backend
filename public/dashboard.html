@@ -352,7 +352,6 @@
         }
 
         .page.active { display: block; }
-        #earnrs.active { display: block !important; visibility: visible !important; opacity: 1 !important; }
 
         /* Stats Grid - FULL WIDTH */
         .stats-grid {
@@ -1031,67 +1030,6 @@
         }
         .payout-usd { font-size: 0.65rem; color: var(--gray); text-align: right; margin-top: 0.2rem; }
 
-        /* earnrs */
-        .earnrs-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
-        }
-
-        .earnr-card {
-            background: var(--gray-dark);
-            border: 1px solid var(--border);
-            padding: 2.5rem;
-            text-align: center;
-        }
-
-        .earnr-card:hover {
-            border-color: var(--border-light);
-        }
-
-        .earnr-avatar {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 1.25rem;
-            overflow: hidden;
-            background: var(--border-light);
-        }
-
-        .earnr-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .earnr-name {
-            font-size: 1rem;
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-
-        .earnr-handle {
-            font-size: 0.75rem;
-            color: var(--gray);
-            margin-bottom: 1.5rem;
-        }
-
-        .earnr-stats {
-            display: flex;
-            justify-content: center;
-            gap: 2.5rem;
-            font-size: 0.7rem;
-            color: var(--gray);
-        }
-
-        .earnr-stat-value {
-            color: var(--green);
-            font-weight: 500;
-            display: block;
-            font-family: 'Instrument Serif', serif;
-            font-size: 1.25rem;
-            margin-bottom: 0.25rem;
-        }
-
         /* Notifications */
         .notif-panel {
             position: fixed;
@@ -1297,14 +1235,12 @@
 
         /* Responsive */
         @media (max-width: 1400px) {
-            .earnrs-grid { grid-template-columns: repeat(3, 1fr); }
             .task-card { grid-template-columns: 120px 1fr 150px 120px; gap: 2rem; }
         }
 
         @media (max-width: 1200px) {
             .main-grid { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .earnrs-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 1024px) {
@@ -1328,7 +1264,6 @@
             .page { padding: 1.5rem; }
             .topbar { padding: 1rem 1.5rem; }
             .stats-grid { grid-template-columns: 1fr; }
-            .earnrs-grid { grid-template-columns: 1fr; }
             .submission-body { grid-template-columns: 1fr; }
             .notif-panel { width: 100%; right: -100%; }
             .settings-row { grid-template-columns: 1fr; gap: 1rem; }
@@ -1433,9 +1368,6 @@
                         <span class="nav-icon">-</span>Payouts
                         <span class="nav-badge live">LIVE</span>
                     </div>
-                    <div class="nav-item" data-page="earnrs">
-                        <span class="nav-icon">-</span>earnrs
-                    </div>
                 </div>
                 <div class="nav-section">
                     <div class="nav-section-title">Resources</div>
@@ -1527,13 +1459,12 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <span class="card-title">Top earnrs This Week</span>
-                            <span class="card-action" onclick="navigateTo('earnrs')">View All</span>
+                            <span class="card-title">Top Hunters This Week</span>
                         </div>
                         <div class="card-body">
                             <div class="empty-state">
                                 <div class="empty-state-icon">-</div>
-                                <div class="empty-state-text">No earnrs yet</div>
+                                <div class="empty-state-text">No hunters yet</div>
                                 <div class="empty-state-sub">Leaderboard updates weekly</div>
                             </div>
                         </div>
@@ -1704,30 +1635,6 @@
                     </div>
                 </div>
             </div>
-
-
-            <!-- earnrs -->
-            <div class="page" id="earnrs">
-                <p style="color:white;font-size:40px;background:red;padding:50px;">
-                    IF YOU CAN SEE THIS RED BOX WITH BIG WHITE TEXT, THE PAGE WORKS!
-                </p>
-                <p style="color:lime;font-size:30px;">
-                    This is line 2 - green text
-                </p>
-                <p style="color:yellow;font-size:30px;">
-                    This is line 3 - yellow text
-                </p>
-                <div id="stat-total-earnrs" style="display:none;">0</div>
-                <div id="stat-online-now" style="display:none;">0</div>
-                <div id="stat-new-today" style="display:none;">0</div>
-                <div id="stat-total-paid" style="display:none;">0</div>
-                <div id="stat-total-tasks" style="display:none;">0</div>
-                <div id="stat-avg-earned" style="display:none;">0</div>
-                <div id="stat-top-earner" style="display:none;">-</div>
-                <div id="stat-top-earner-amount" style="display:none;">-</div>
-                <div id="signupsFeed" style="display:none;"></div>
-                <div id="earnrs-list" style="display:none;"></div>
-            </div>
         </main>
     </div>
 
@@ -1814,7 +1721,7 @@
             document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
             document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
 
-            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts', earnrs:'Earnrs' };
+            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts' };
             document.getElementById('pageTitle').textContent = titles[page];
 
             document.getElementById('sidebar').classList.remove('open');
@@ -1823,7 +1730,6 @@
 
             if (page === 'tasks') loadTasks();
             if (page === 'submissions') loadSubmissions();
-            if (page === 'earnrs') loadearnrs();
         }
 
         document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -2427,7 +2333,7 @@ function showPopup(message, isError) {
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">-</div>
-                            <div class="empty-state-text">No earnrs yet</div>
+                            <div class="empty-state-text">No hunters yet</div>
                             <div class="empty-state-sub">Leaderboard updates weekly</div>
                         </div>
                     `;
@@ -2650,67 +2556,6 @@ function showPopup(message, isError) {
         }
 
         // ============================================
-        // earnrs
-        // ============================================
-
-        async function loadearnrs() {
-            try {
-                const res = await fetch('/api/earnrs');
-                const data = await res.json();
-                const earnrs = data.earnrs || [];
-
-                const statsRes = await fetch('/api/stats');
-                const stats = await statsRes.json();
-
-                // Update stats
-                document.getElementById('stat-total-earnrs').textContent = earnrs.length;
-                document.getElementById('stat-online-now').textContent = stats.onlineUsers || 0;
-                document.getElementById('stat-new-today').textContent = earnrs.filter(e => new Date(e.created_at) > new Date(Date.now() - 86400000)).length;
-                document.getElementById('stat-total-paid').textContent = formatNumber(earnrs.reduce((s, e) => s + (e.total_earned || 0), 0));
-                document.getElementById('stat-total-tasks').textContent = earnrs.reduce((s, e) => s + (e.tasks_completed || 0), 0);
-                document.getElementById('stat-avg-earned').textContent = earnrs.length > 0 ? formatNumber(Math.round(earnrs.reduce((s, e) => s + (e.total_earned || 0), 0) / earnrs.length)) : '0';
-
-                const top = earnrs.length > 0 ? earnrs.reduce((m, e) => (e.total_earned || 0) > (m.total_earned || 0) ? e : m, earnrs[0]) : null;
-                if (top) {
-                    document.getElementById('stat-top-earner').textContent = '@' + top.username;
-                    document.getElementById('stat-top-earner-amount').textContent = formatNumber(top.total_earned) + ' USDC';
-                }
-
-                // Update signups
-                const signupsFeed = document.getElementById('signupsFeed');
-                if (earnrs.length > 0) {
-                    signupsFeed.innerHTML = earnrs.slice(0, 5).map(u => `
-                        <div class="activity-item" onclick="viewUserProfile('${u.id}')" style="cursor:pointer">
-                            <div class="activity-avatar">${u.avatar_url ? `<img src="${u.avatar_url}">` : ''}</div>
-                            <div class="activity-content">
-                                <div class="activity-text"><strong>@${u.username}</strong> joined</div>
-                                <div class="activity-meta">${timeAgo(u.created_at)}</div>
-                            </div>
-                            <div class="activity-badge join">NEW</div>
-                        </div>
-                    `).join('');
-                }
-
-                // Update user list
-                const list = document.getElementById('earnrs-list');
-                if (earnrs.length > 0) {
-                    list.innerHTML = earnrs.map(u => `
-                        <div class="earnr-card" onclick="viewUserProfile('${u.id}')" style="cursor:pointer">
-                            <div class="earnr-avatar">${u.avatar_url ? `<img src="${u.avatar_url}">` : ''}</div>
-                            <div class="earnr-name">${u.display_name || u.username}</div>
-                            <div class="earnr-handle">@${u.username}</div>
-                            <div class="earnr-stats">
-                                <div><span class="earnr-stat-value">${u.tasks_completed || 0}</span> tasks</div>
-                                <div><span class="earnr-stat-value">${formatNumber(u.total_earned)}</span> USDC</div>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (err) {
-                console.error('loadearnrs error:', err);
-            }
-        }
-
         // ============================================
         // HELPERS
         // ============================================
