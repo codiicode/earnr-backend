@@ -209,6 +209,99 @@ module.exports = async function(req, res) {
       }
     }
 
+    // User Submissions API
+    if (p === '/api/submissions' && req.method === 'GET') {
+      var user = await getUser();
+      if (!user) return res.status(401).json({error: 'Not logged in'});
+      var r = await supabase.from('submissions').select('*, tasks(*)').eq('user_id', user.id).order('created_at', {ascending: false});
+      return res.status(200).json({submissions: r.data || []});
+    }
+
+    if (p === '/api/submissions' && req.method === 'POST') {
+      var user = await getUser();
+      if (!user) return res.status(401).json({error: 'Not logged in'});
+      var body = ''; for await (var chunk of req) { body += chunk; }
+      var data = JSON.parse(body);
+      if (!data.task_id || !data.proof_url) return res.status(400).json({error: 'Missing task_id or proof_url'});
+
+      // Check if user already submitted this task
+      var existing = await supabase.from('submissions').select('id').eq('user_id', user.id).eq('task_id', data.task_id);
+      if (existing.data && existing.data.length > 0) {
+        return res.status(400).json({error: 'You already submitted this task'});
+      }
+
+      var r = await supabase.from('submissions').insert({
+        user_id: user.id,
+        task_id: data.task_id,
+        proof_url: data.proof_url,
+        comment: data.comment || null,
+        status: 'PENDING'
+      }).select().single();
+
+      return res.status(200).json({submission: r.data});
+    }
+
+    // Admin API
+    var adminKey = req.headers['x-admin-key'];
+    var validAdminKey = process.env.ADMIN_KEY;
+
+    if (p === '/api/admin/submissions') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var r = await supabase.from('submissions').select('*, users(*), tasks(*)').order('created_at', {ascending: false});
+      return res.status(200).json({submissions: r.data || []});
+    }
+
+    if (p.match(/^\/api\/admin\/submissions\/[^/]+\/approve$/) && req.method === 'POST') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var subId = p.split('/')[4];
+
+      // Get submission with task info
+      var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
+      if (!sub.data) return res.status(404).json({error: 'Submission not found'});
+      if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
+
+      // Update submission status
+      await supabase.from('submissions').update({status: 'APPROVED', approved_at: new Date().toISOString()}).eq('id', subId);
+
+      // Update user stats
+      var reward = sub.data.tasks?.reward || 0;
+      await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
+
+      // Add activity
+      var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
+      await supabase.from('activity').insert({
+        user_id: sub.data.user_id,
+        username: userInfo.data?.username,
+        avatar_url: userInfo.data?.avatar_url,
+        type: 'TASK_COMPLETED',
+        task_name: sub.data.tasks?.title,
+        amount: reward
+      });
+
+      return res.status(200).json({success: true});
+    }
+
+    if (p.match(/^\/api\/admin\/submissions\/[^/]+\/reject$/) && req.method === 'POST') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var subId = p.split('/')[4];
+
+      var sub = await supabase.from('submissions').select('*').eq('id', subId).single();
+      if (!sub.data) return res.status(404).json({error: 'Submission not found'});
+      if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
+
+      await supabase.from('submissions').update({status: 'REJECTED', rejected_at: new Date().toISOString()}).eq('id', subId);
+      return res.status(200).json({success: true});
+    }
+
+    // Serve admin page
+    if (p === '/admin') {
+      res.setHeader('Content-Type', 'text/html');
+      var adminPath = path.join(process.cwd(), 'public', 'admin.html');
+      if (fs.existsSync(adminPath)) {
+        return res.status(200).send(fs.readFileSync(adminPath, 'utf8'));
+      }
+    }
+
     var user = await getUser();
     res.setHeader('Content-Type', 'text/html');
 
