@@ -2700,9 +2700,20 @@ function showPopup(message, isError) {
 
         async function loadearnrs() {
             try {
+                console.log('Loading earnrs...');
                 const res = await fetch('/api/earnrs');
+                if (!res.ok) {
+                    console.error('API error:', res.status, res.statusText);
+                    return;
+                }
                 const data = await res.json();
+                console.log('Earnrs API response:', data);
+                if (data.error) {
+                    console.error('API returned error:', data.error);
+                    return;
+                }
                 const earnrs = data.earnrs || [];
+                console.log('Number of earnrs:', earnrs.length);
 
                 // Update stats
                 const statsRes = await fetch('/api/stats');
