@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -950,86 +949,6 @@
             color: var(--gray);
         }
 
-        /* Payouts */
-        .chart-card {
-            background: var(--gray-dark);
-            border: 1px solid var(--border);
-            margin-bottom: 2rem;
-        }
-
-        .chart-header {
-            padding: 1.5rem 2.5rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .chart-title { font-size: 0.9rem; font-weight: 500; }
-
-        .period-btns {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .period-btn {
-            font-family: inherit;
-            font-size: 0.55rem;
-            letter-spacing: 0.08em;
-            padding: 0.45rem 0.9rem;
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--gray);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .period-btn.active,
-        .period-btn:hover {
-            border-color: var(--green);
-            color: var(--green);
-        }
-
-        .chart-body {
-            padding: 2.5rem;
-            height: 320px;
-        }
-
-        .payout-item {
-            display: grid;
-            grid-template-columns: 48px 1fr auto auto;
-            gap: 2rem;
-            align-items: center;
-            padding: 1.5rem 2.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .payout-item:last-child { border-bottom: none; }
-        .payout-item:hover { background: rgba(255,255,255,0.02); }
-
-        .payout-icon {
-            width: 48px;
-            height: 48px;
-            background: var(--green-dim);
-            border: 1px solid var(--green-border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--green);
-            font-size: 1rem;
-        }
-
-        .payout-info h4 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; }
-        .payout-wallet { font-size: 0.7rem; color: var(--gray); }
-        .payout-time { font-size: 0.7rem; color: var(--gray); text-align: right; }
-        .payout-amount { 
-            font-family: 'Instrument Serif', serif;
-            font-size: 1.25rem; 
-            color: var(--green); 
-            text-align: right; 
-        }
-        .payout-usd { font-size: 0.65rem; color: var(--gray); text-align: right; margin-top: 0.2rem; }
-
         /* Notifications */
         .notif-panel {
             position: fixed;
@@ -1364,10 +1283,6 @@
                     <div class="nav-item" data-page="profile">
                         <span class="nav-icon">-</span>My Profile
                     </div>
-                    <div class="nav-item" data-page="payouts">
-                        <span class="nav-icon">-</span>Payouts
-                        <span class="nav-badge live">LIVE</span>
-                    </div>
                 </div>
                 <div class="nav-section">
                     <div class="nav-section-title">Resources</div>
@@ -1563,78 +1478,6 @@
         </div>
     </div>
 </div>
-
-            <!-- Payouts -->
-            <div class="page" id="payouts">
-                <!-- Payout Wallet Info -->
-                <div class="wallet-banner" style="background:var(--green-dim);border:1px solid var(--green-border);padding:1rem 2rem;margin-bottom:2rem;display:flex;justify-content:space-between;align-items:center;">
-                    <div style="display:flex;align-items:center;gap:1rem;">
-                        <div style="width:10px;height:10px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;"></div>
-                        <div>
-                            <div style="font-size:0.6rem;color:var(--gray);letter-spacing:0.1em;margin-bottom:0.25rem;">PAYOUT WALLET</div>
-                            <div id="payoutWalletAddress" style="font-size:0.8rem;font-family:'Geist Mono',monospace;">Loading...</div>
-                        </div>
-                    </div>
-                    <a id="solscanLink" href="#" target="_blank" style="font-size:0.65rem;color:var(--green);letter-spacing:0.05em;">VIEW ON SOLSCAN →</a>
-                </div>
-
-                <!-- Stats -->
-                <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
-                    <div class="stat-card">
-                        <div class="stat-label">Treasury Balance</div>
-                        <div class="stat-value" id="treasuryBalance">-</div>
-                        <div class="stat-change">USDC available</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Paid Out</div>
-                        <div class="stat-value" id="totalPaidOut">-</div>
-                        <div class="stat-change">USDC</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Transactions</div>
-                        <div class="stat-value" id="txCount">-</div>
-                        <div class="stat-change">payouts made</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Last Payout</div>
-                        <div class="stat-value" id="lastPayoutTime">-</div>
-                        <div class="stat-change" id="lastPayoutAmount">awaiting data</div>
-                    </div>
-                </div>
-
-                <!-- Chart -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <div class="chart-title">Payout Volume</div>
-                        <div class="period-btns">
-                            <button class="period-btn" data-period="7">7D</button>
-                            <button class="period-btn active" data-period="30">30D</button>
-                            <button class="period-btn" data-period="90">90D</button>
-                            <button class="period-btn" data-period="all">ALL</button>
-                        </div>
-                    </div>
-                    <div class="chart-body">
-                        <canvas id="payoutChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Live Transactions Feed -->
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">Live Transactions</span>
-                        <div class="live-badge">
-                            <span class="live-dot"></span>LIVE FROM BLOCKCHAIN
-                        </div>
-                    </div>
-                    <div id="payoutsFeed">
-                        <div class="empty-state" id="payoutsLoading">
-                            <div class="empty-state-icon" style="animation:pulse 1s infinite;">◎</div>
-                            <div class="empty-state-text">Fetching blockchain data...</div>
-                            <div class="empty-state-sub">Connecting to Solana mainnet</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -1652,10 +1495,6 @@
             <div class="mobile-nav-item" data-page="submissions">
                 <span>⛏</span>
                 <span>MINE</span>
-            </div>
-            <div class="mobile-nav-item" data-page="payouts">
-                <span>$</span>
-                <span>PAYOUTS</span>
             </div>
             <div class="mobile-nav-item" data-page="profile">
                 <span id="mobile-profile-icon">-</span>
@@ -1721,7 +1560,7 @@
             document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
             document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
 
-            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts' };
+            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile' };
             document.getElementById('pageTitle').textContent = titles[page];
 
             document.getElementById('sidebar').classList.remove('open');
@@ -1775,13 +1614,6 @@
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', function() { this.classList.toggle('active'); });
-        });
-
-        document.querySelectorAll('.period-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                this.parentElement.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-            });
         });
 
        // ============================================
@@ -2029,243 +1861,6 @@ function showPopup(message, isError) {
         // ============================================
         // PAYOUTS - Live Solana Blockchain Data
         // ============================================
-
-        let payoutData = null;
-        let payoutChart = null;
-
-        async function loadPayouts() {
-            console.log('[EARNR] loadPayouts() called');
-            try {
-                const res = await fetch('/api/payouts');
-                const data = await res.json();
-                console.log('[EARNR] API response:', data);
-                payoutData = data;
-
-                // Update wallet address display
-                const walletEl = document.getElementById('payoutWalletAddress');
-                const solscanEl = document.getElementById('solscanLink');
-                console.log('[EARNR] Elements found:', { walletEl: !!walletEl, solscanEl: !!solscanEl });
-
-                if (walletEl && data.stats && data.stats.walletAddress) {
-                    const addr = data.stats.walletAddress;
-                    const shortAddr = addr.substring(0, 4) + '...' + addr.substring(addr.length - 4);
-                    walletEl.textContent = shortAddr;
-                    walletEl.title = addr;
-                    if (solscanEl) solscanEl.href = 'https://solscan.io/account/' + addr;
-                } else if (walletEl) {
-                    walletEl.textContent = 'Not configured';
-                    if (solscanEl) solscanEl.style.display = 'none';
-                }
-
-                // Update stats - always show values even if 0
-                const treasuryEl = document.getElementById('treasuryBalance');
-                const paidOutEl = document.getElementById('totalPaidOut');
-                const txCountEl = document.getElementById('txCount');
-                const lastPayoutTimeEl = document.getElementById('lastPayoutTime');
-                const lastPayoutAmountEl = document.getElementById('lastPayoutAmount');
-
-                if (treasuryEl) treasuryEl.textContent = formatUSDC(data.stats?.balance || 0);
-                if (paidOutEl) paidOutEl.textContent = formatUSDC(data.stats?.totalPaidOut || 0);
-                if (txCountEl) txCountEl.textContent = data.stats?.transactionCount || 0;
-
-                // Last payout
-                if (data.transactions && data.transactions.length > 0) {
-                    const lastTx = data.transactions[0];
-                    if (lastPayoutTimeEl) lastPayoutTimeEl.textContent = timeAgo(lastTx.timestamp);
-                    if (lastPayoutAmountEl) lastPayoutAmountEl.textContent = '+$' + lastTx.amount.toFixed(2) + ' USDC';
-                } else {
-                    if (lastPayoutTimeEl) lastPayoutTimeEl.textContent = '-';
-                    if (lastPayoutAmountEl) lastPayoutAmountEl.textContent = 'no payouts yet';
-                }
-
-                // Update transactions feed
-                const feed = document.getElementById('payoutsFeed');
-                if (feed) {
-                    if (data.transactions && data.transactions.length > 0) {
-                        feed.innerHTML = data.transactions.map(tx => `
-                            <div class="payout-item">
-                                <div class="payout-icon">◎</div>
-                                <div class="payout-info">
-                                    <h4>USDC Payout</h4>
-                                    <div class="payout-wallet">${tx.recipient.substring(0, 4)}...${tx.recipient.substring(tx.recipient.length - 4)}</div>
-                                </div>
-                                <div class="payout-time">
-                                    ${timeAgo(tx.timestamp)}
-                                    <div style="font-size:0.6rem;margin-top:0.25rem;">
-                                        <a href="https://solscan.io/tx/${tx.signature}" target="_blank" style="color:var(--green);">View TX →</a>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="payout-amount">+$${tx.amount.toFixed(2)}</div>
-                                    <div class="payout-usd">USDC</div>
-                                </div>
-                            </div>
-                        `).join('');
-                    } else if (data.error) {
-                        feed.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">!</div>
-                                <div class="empty-state-text">${data.error}</div>
-                                <div class="empty-state-sub">Please configure PAYOUT_WALLET_ADDRESS</div>
-                            </div>
-                        `;
-                    } else {
-                        feed.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">◎</div>
-                                <div class="empty-state-text">No payouts yet</div>
-                                <div class="empty-state-sub">Transactions will appear here in real-time</div>
-                            </div>
-                        `;
-                    }
-                }
-
-                // Update chart - always render even with empty data
-                updatePayoutChart(data.transactions || []);
-
-            } catch (err) {
-                console.error('Failed to load payouts:', err);
-                const feed = document.getElementById('payoutsFeed');
-                if (feed) {
-                    feed.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">!</div>
-                            <div class="empty-state-text">Failed to load data</div>
-                            <div class="empty-state-sub">${err.message}</div>
-                        </div>
-                    `;
-                }
-                // Still try to render empty chart on error
-                updatePayoutChart([]);
-            }
-        }
-
-        function formatUSDC(amount) {
-            if (!amount) return '$0';
-            if (amount >= 1000000) return '$' + (amount / 1000000).toFixed(2) + 'M';
-            if (amount >= 1000) return '$' + (amount / 1000).toFixed(2) + 'K';
-            return '$' + amount.toFixed(2);
-        }
-
-        function updatePayoutChart(transactions) {
-            const ctx = document.getElementById('payoutChart');
-            if (!ctx) {
-                console.log('Chart canvas not found');
-                return;
-            }
-
-            // Group transactions by day
-            const dailyData = {};
-            const now = new Date();
-
-            // Initialize last 30 days with 0
-            for (let i = 29; i >= 0; i--) {
-                const date = new Date(now);
-                date.setDate(date.getDate() - i);
-                const key = date.toISOString().split('T')[0];
-                dailyData[key] = 0;
-            }
-
-            // Sum up transactions per day
-            if (transactions && transactions.length > 0) {
-                transactions.forEach(tx => {
-                    const date = new Date(tx.timestamp).toISOString().split('T')[0];
-                    if (dailyData[date] !== undefined) {
-                        dailyData[date] += tx.amount;
-                    }
-                });
-            }
-
-            const labels = Object.keys(dailyData).map(d => {
-                const date = new Date(d);
-                return date.getDate() + '/' + (date.getMonth() + 1);
-            });
-            const values = Object.values(dailyData);
-
-            // Calculate max for y-axis (minimum of 100 for empty state)
-            const maxValue = Math.max(...values, 100);
-
-            // Destroy existing chart if it exists
-            if (payoutChart) {
-                payoutChart.destroy();
-            }
-
-            const context = ctx.getContext('2d');
-            const gradient = context.createLinearGradient(0, 0, 0, 320);
-            gradient.addColorStop(0, 'rgba(0, 255, 102, 0.15)');
-            gradient.addColorStop(1, 'rgba(0, 255, 102, 0)');
-
-            payoutChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: values,
-                        borderColor: '#00FF66',
-                        borderWidth: 2,
-                        backgroundColor: gradient,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 0,
-                        pointHoverRadius: 6,
-                        pointHoverBackgroundColor: '#00FF66',
-                        pointHoverBorderColor: '#000',
-                        pointHoverBorderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#000',
-                            borderColor: '#00FF66',
-                            borderWidth: 1,
-                            titleColor: '#fff',
-                            bodyColor: '#00FF66',
-                            titleFont: { family: 'Geist Mono' },
-                            bodyFont: { family: 'Geist Mono', size: 14 },
-                            padding: 12,
-                            displayColors: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return '$' + context.raw.toFixed(2) + ' USDC';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            display: true,
-                            grid: { color: 'rgba(255,255,255,0.03)' },
-                            ticks: {
-                                color: '#666',
-                                font: { family: 'Geist Mono', size: 10 },
-                                maxTicksLimit: 7
-                            }
-                        },
-                        y: {
-                            display: true,
-                            beginAtZero: true,
-                            suggestedMax: maxValue,
-                            grid: { color: 'rgba(255,255,255,0.03)' },
-                            ticks: {
-                                color: '#666',
-                                font: { family: 'Geist Mono', size: 10 },
-                                callback: function(value) {
-                                    return '$' + value;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
 
         async function loadActivity() {
             try {
@@ -2597,12 +2192,8 @@ function showPopup(message, isError) {
             await loadStats();
             await loadActivity();
             await loadLeaderboard();
-            await loadPayouts();
             await fetchTaskCount();
             startHeartbeat();
-
-            // Refresh payouts every 30 seconds
-            setInterval(loadPayouts, 30000);
         }
 
         init();
