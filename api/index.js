@@ -3,7 +3,16 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+// IMPORTANT: Must use service_role key (not anon key) to bypass RLS
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+// Log key type for debugging (first 10 chars only for security)
+console.log('Supabase key prefix:', SUPABASE_KEY.substring(0, 10) + '...');
 const BASE_URL = String(process.env.BASE_URL || 'https://earnr.xyz').trim();
 const X_CLIENT_ID = String(process.env.X_CLIENT_ID || '').trim();
 const X_CLIENT_SECRET = String(process.env.X_CLIENT_SECRET || '').trim();
@@ -220,10 +229,27 @@ module.exports = async function(req, res) {
       return res.status(200).json({submissions: r.data || []});
     }
 
+    // Debug endpoint to check database connection and key type
+    if (p === '/api/admin/debug' && req.method === 'GET') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var keyType = SUPABASE_KEY.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6') ? 'looks like supabase key' : 'unknown format';
+      var isServiceKey = SUPABASE_KEY.includes('service_role') || SUPABASE_KEY.length > 200;
+      var testResult = await supabase.from('submissions').select('id, status').limit(1);
+      return res.status(200).json({
+        keyPrefix: SUPABASE_KEY.substring(0, 20) + '...',
+        keyLength: SUPABASE_KEY.length,
+        keyType: keyType,
+        likelyServiceKey: isServiceKey,
+        testQuery: testResult.error ? testResult.error.message : 'OK',
+        testData: testResult.data
+      });
+    }
+
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/approve$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var subId = p.split('/')[4];
       console.log('APPROVE: Starting approval for submission ID:', subId);
+      console.log('APPROVE: Using key prefix:', SUPABASE_KEY.substring(0, 15) + '...');
 
       // Get submission with task info
       var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
@@ -238,11 +264,12 @@ module.exports = async function(req, res) {
       console.log('APPROVE: Current status:', sub.data.status);
       if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed, current status: ' + sub.data.status});
 
-      // Do the update
+      // Try update with explicit options
       var updateResult = await supabase
         .from('submissions')
         .update({status: 'APPROVED', approved_at: new Date().toISOString()})
-        .eq('id', subId);
+        .eq('id', subId)
+        .select();
 
       console.log('APPROVE: Update result:', JSON.stringify(updateResult));
 
@@ -251,29 +278,34 @@ module.exports = async function(req, res) {
         return res.status(500).json({error: 'Failed to update: ' + updateResult.error.message});
       }
 
-      // SEPARATE verification query - don't trust the update result
+      // Check if update returned any rows (if 0 rows, RLS blocked it)
+      if (!updateResult.data || updateResult.data.length === 0) {
+        console.error('APPROVE: Update returned 0 rows - RLS is likely blocking the update!');
+        return res.status(500).json({
+          error: 'Update returned 0 rows. RLS policy is blocking the update. Check that SUPABASE_SERVICE_KEY is the service_role key (not anon key).',
+          hint: 'Go to Supabase Dashboard > Settings > API > service_role key'
+        });
+      }
+
+      // Check if the returned data shows APPROVED
+      if (updateResult.data[0].status !== 'APPROVED') {
+        console.error('APPROVE: Update returned but status is not APPROVED:', updateResult.data[0].status);
+        return res.status(500).json({
+          error: 'Update executed but status is: ' + updateResult.data[0].status,
+          data: updateResult.data[0]
+        });
+      }
+
+      // Extra verification with fresh query after small delay
+      await new Promise(resolve => setTimeout(resolve, 100));
       var verifyResult = await supabase.from('submissions').select('*').eq('id', subId).single();
       console.log('APPROVE: Verification result:', JSON.stringify(verifyResult));
 
-      if (verifyResult.error) {
-        console.error('APPROVE: Verification error:', verifyResult.error);
-        return res.status(500).json({error: 'Failed to verify update: ' + verifyResult.error.message});
-      }
-
-      if (!verifyResult.data) {
-        return res.status(500).json({error: 'Submission disappeared after update'});
-      }
-
-      if (verifyResult.data.status !== 'APPROVED') {
-        console.error('APPROVE: Status did not change! Still:', verifyResult.data.status);
+      if (verifyResult.data?.status !== 'APPROVED') {
+        console.error('APPROVE: Verification failed! Status reverted to:', verifyResult.data?.status);
         return res.status(500).json({
-          error: 'Update did not persist. Status is still: ' + verifyResult.data.status,
-          debug: {
-            submissionId: subId,
-            expectedStatus: 'APPROVED',
-            actualStatus: verifyResult.data.status,
-            updateResult: updateResult
-          }
+          error: 'Update appeared to succeed but verification shows status: ' + verifyResult.data?.status,
+          possibleCause: 'Database trigger or RLS policy is reverting the change'
         });
       }
 
