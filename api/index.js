@@ -297,7 +297,7 @@ module.exports = async function(req, res) {
         // Step 2: Update to a TEST status (we'll use 'TEST_STATUS')
         var update1 = await supabase
           .from('submissions')
-          .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+          .update({ status: 'APPROVED' })
           .eq('id', testId)
           .select('status');
 
@@ -389,7 +389,7 @@ module.exports = async function(req, res) {
       console.log('APPROVE v6: Executing UPDATE...');
       var updateResult = await supabase
         .from('submissions')
-        .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+        .update({ status: 'APPROVED' })
         .eq('id', subId)
         .select();
 
@@ -504,7 +504,7 @@ module.exports = async function(req, res) {
 
       var updateResult = await supabase
         .from('submissions')
-        .update({status: 'REJECTED', rejected_at: new Date().toISOString()})
+        .update({status: 'REJECTED'})
         .eq('id', subId);
 
       console.log('REJECT: Update result:', JSON.stringify(updateResult));
