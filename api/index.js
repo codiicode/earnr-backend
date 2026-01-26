@@ -830,6 +830,15 @@ module.exports = async function(req, res) {
       return res.status(200).json({success: true, submission: verifyResult.data});
     }
 
+    // Serve how it works page
+    if (p === '/how-it-works' || p === '/how-it-works.html') {
+      res.setHeader('Content-Type', 'text/html');
+      var howPath = path.join(process.cwd(), 'public', 'how-it-works.html');
+      if (fs.existsSync(howPath)) {
+        return res.status(200).send(fs.readFileSync(howPath, 'utf8'));
+      }
+    }
+
     // Serve admin page
     if (p === '/admin') {
       res.setHeader('Content-Type', 'text/html');
