@@ -509,6 +509,19 @@
             border-color: var(--white);
         }
 
+        .btn-disabled {
+            background: var(--gray-dark);
+            border-color: var(--border);
+            color: var(--gray);
+            font-weight: 500;
+            cursor: not-allowed;
+        }
+
+        .btn-disabled:hover {
+            background: var(--gray-dark);
+            border-color: var(--border);
+        }
+
         .btn-x {
             background: var(--white);
             border-color: var(--white);
@@ -1973,6 +1986,23 @@
                     const minFollowers = task.min_followers || 0;
                     const meetsRequirement = minFollowers === 0 || userFollowers >= minFollowers;
                     const slotsLeft = task.slots_total - (task.slots_filled || 0);
+                    const alreadySubmitted = userSubmittedTaskIds.has(task.id);
+
+                    // Determine button state
+                    let buttonClass = 'btn btn-primary';
+                    let buttonText = 'SUBMIT';
+                    let buttonOnClick = `onclick="openSubmitModal('${task.id}')"`;
+                    let buttonTitle = '';
+
+                    if (alreadySubmitted) {
+                        buttonClass = 'btn btn-disabled';
+                        buttonText = 'SUBMITTED';
+                        buttonOnClick = '';
+                        buttonTitle = 'title="You have already submitted this task"';
+                    } else if (!meetsRequirement) {
+                        buttonClass = 'btn btn-primary disabled';
+                        buttonTitle = 'title="You don\'t meet the follower requirement"';
+                    }
 
                     return `
                     <div class="task-card" data-task-id="${task.id}">
@@ -1998,7 +2028,7 @@
                         </div>
                         <div class="task-action">
                             ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
-                            <button class="btn btn-primary ${!meetsRequirement ? 'disabled' : ''}" onclick="openSubmitModal('${task.id}')" ${!meetsRequirement ? 'title="You don\'t meet the follower requirement"' : ''}>SUBMIT</button>
+                            <button class="${buttonClass}" ${buttonOnClick} ${buttonTitle}>${buttonText}</button>
                         </div>
                     </div>
                 `}).join('');
@@ -2550,6 +2580,7 @@ function showPopup(message, isError) {
         // ============================================
 
         let allAvailableTasks = [];
+        let userSubmittedTaskIds = new Set();
 
         async function loadTasks() {
             try {
@@ -2561,6 +2592,15 @@ function showPopup(message, isError) {
 
                 // Store tasks for later reference
                 allAvailableTasks = data.tasks || [];
+
+                // Fetch user's submissions to check which tasks are already submitted
+                if (currentUser) {
+                    try {
+                        const subRes = await fetch('/api/submissions', { credentials: 'include' });
+                        const subData = await subRes.json();
+                        userSubmittedTaskIds = new Set((subData.submissions || []).map(s => s.task_id));
+                    } catch (e) { /* ignore */ }
+                }
 
                 // Render with current filters
                 renderFilteredTasks();

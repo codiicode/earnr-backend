@@ -814,6 +814,15 @@ module.exports = async function(req, res) {
 
       console.log('REJECT: SUCCESS - Status verified as REJECTED');
 
+      // Decrement slots_filled on the task to free up the slot
+      if (sub.data.task_id) {
+        var taskResult = await supabase.from('tasks').select('slots_filled').eq('id', sub.data.task_id).single();
+        if (taskResult.data && taskResult.data.slots_filled > 0) {
+          await supabase.from('tasks').update({ slots_filled: taskResult.data.slots_filled - 1 }).eq('id', sub.data.task_id);
+          console.log('REJECT: Decremented slots_filled for task:', sub.data.task_id);
+        }
+      }
+
       // Create notification for user
       try {
         await createNotification(
