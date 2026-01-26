@@ -606,6 +606,33 @@
             width: 100%;
         }
 
+        .tasks-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .filters-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            padding: 1rem 1.5rem;
+            background: var(--gray-dark);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .filter-label {
+            font-size: 0.7rem;
+            color: var(--gray);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
         .filters {
             display: flex;
             gap: 0.5rem;
@@ -1404,24 +1431,36 @@
 
             <!-- Tasks -->
             <div class="page" id="tasks">
-                <div class="page-header">
-                    <div class="filters">
-                        <button class="filter-btn active">ALL</button>
-                        <button class="filter-btn">SOCIAL</button>
-                        <button class="filter-btn">CONTENT</button>
-                        <button class="filter-btn">COMMUNITY</button>
-                    </div>
-                    <div class="filters">
-                        <button class="filter-btn">EASY</button>
-                        <button class="filter-btn">MEDIUM</button>
-                        <button class="filter-btn">HARD</button>
+                <div class="tasks-header">
+                    <h2 style="color:var(--white);font-size:1.5rem;font-weight:600;margin:0 0 1.5rem 0;">Browse Tasks</h2>
+                    <div class="filters-section">
+                        <div class="filter-group">
+                            <span class="filter-label">Category:</span>
+                            <div class="filters">
+                                <button class="filter-btn active" data-filter="category" data-value="ALL">ALL</button>
+                                <button class="filter-btn" data-filter="category" data-value="SOCIAL">SOCIAL</button>
+                                <button class="filter-btn" data-filter="category" data-value="CONTENT">CONTENT</button>
+                                <button class="filter-btn" data-filter="category" data-value="COMMUNITY">COMMUNITY</button>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">Difficulty:</span>
+                            <div class="filters">
+                                <button class="filter-btn active" data-filter="difficulty" data-value="ALL">ALL</button>
+                                <button class="filter-btn" data-filter="difficulty" data-value="EASY">EASY</button>
+                                <button class="filter-btn" data-filter="difficulty" data-value="MEDIUM">MEDIUM</button>
+                                <button class="filter-btn" data-filter="difficulty" data-value="HARD">HARD</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
-                    <div class="empty-state-icon">-</div>
-                    <div class="empty-state-text">No tasks available</div>
-                    <div class="empty-state-sub">New tasks will be posted soon</div>
+                <div id="tasks-container">
+                    <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
+                        <div class="empty-state-icon">-</div>
+                        <div class="empty-state-text">No tasks available</div>
+                        <div class="empty-state-sub">New tasks will be posted soon</div>
+                    </div>
                 </div>
             </div>
 
@@ -1684,9 +1723,97 @@
             });
         });
 
+        // Task filter state
+        let categoryFilter = 'ALL';
+        let difficultyFilter = 'ALL';
+
         document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', function() { this.classList.toggle('active'); });
+            btn.addEventListener('click', function() {
+                const filterType = this.dataset.filter;
+                const filterValue = this.dataset.value;
+
+                if (filterType === 'category') {
+                    categoryFilter = filterValue;
+                    // Update active state for category buttons
+                    document.querySelectorAll('.filter-btn[data-filter="category"]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                } else if (filterType === 'difficulty') {
+                    difficultyFilter = filterValue;
+                    // Update active state for difficulty buttons
+                    document.querySelectorAll('.filter-btn[data-filter="difficulty"]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                }
+
+                // Re-render tasks with filters
+                renderFilteredTasks();
+            });
         });
+
+        function renderFilteredTasks() {
+            let filtered = allAvailableTasks;
+
+            // Filter by category
+            if (categoryFilter !== 'ALL') {
+                filtered = filtered.filter(task => task.category === categoryFilter);
+            }
+
+            // Filter by difficulty
+            if (difficultyFilter !== 'ALL') {
+                filtered = filtered.filter(task => task.difficulty === difficultyFilter);
+            }
+
+            const container = document.getElementById('tasks-container');
+            const userFollowers = currentUser?.followers_count || 0;
+
+            if (filtered.length > 0) {
+                const tasksHtml = filtered.map(task => {
+                    const minFollowers = task.min_followers || 0;
+                    const meetsRequirement = minFollowers === 0 || userFollowers >= minFollowers;
+                    const slotsLeft = task.slots_total - (task.slots_filled || 0);
+
+                    return `
+                    <div class="task-card" data-task-id="${task.id}">
+                        <div class="task-reward">
+                            <div class="task-reward-value">${formatNumber(task.reward)}</div>
+                            <div class="task-reward-token">USDC</div>
+                        </div>
+                        <div class="task-content">
+                            <h3>${task.title}</h3>
+                            <p>${task.description}</p>
+                            <div class="task-tags">
+                                <span class="task-tag">${task.category}</span>
+                                <span class="task-tag ${task.difficulty.toLowerCase()}">${task.difficulty}</span>
+                                ${minFollowers > 0 ? `<span class="task-tag" style="background:rgba(255,165,2,0.08);color:var(--yellow);border:1px solid rgba(255,165,2,0.2);">${minFollowers.toLocaleString()}+ FOLLOWERS</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="task-slots">
+                            <div class="slots-bar">
+                                <div class="slots-bar-fill" style="width:${((task.slots_filled || 0) / task.slots_total) * 100}%"></div>
+                            </div>
+                            <div class="slots-text">${slotsLeft} of ${task.slots_total} slots left</div>
+                            ${minFollowers > 0 && !meetsRequirement ? `<div style="font-size:0.6rem;color:var(--red);margin-top:0.3rem;">You need ${minFollowers.toLocaleString()} followers</div>` : ''}
+                        </div>
+                        <div class="task-action">
+                            ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
+                            <button class="btn btn-primary ${!meetsRequirement ? 'disabled' : ''}" onclick="openSubmitModal('${task.id}')" ${!meetsRequirement ? 'title="You don\'t meet the follower requirement"' : ''}>SUBMIT</button>
+                        </div>
+                    </div>
+                `}).join('');
+
+                container.innerHTML = `<div class="tasks-list">${tasksHtml}</div>`;
+            } else {
+                const noMatchText = categoryFilter !== 'ALL' || difficultyFilter !== 'ALL'
+                    ? 'No tasks match your filters'
+                    : 'No tasks available';
+                container.innerHTML = `
+                    <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);">
+                        <div class="empty-state-icon">-</div>
+                        <div class="empty-state-text">${noMatchText}</div>
+                        <div class="empty-state-sub">${categoryFilter !== 'ALL' || difficultyFilter !== 'ALL' ? 'Try adjusting your filters' : 'New tasks will be posted soon'}</div>
+                    </div>
+                `;
+            }
+        }
 
        // ============================================
         // AUTH
@@ -1782,9 +1909,24 @@ if (data.user) {
                 console.error('Auth check failed:', err);
             }
         }
+function isValidSolanaAddress(address) {
+    // Solana addresses are Base58 encoded and 32-44 characters
+    // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz (no 0, O, I, l)
+    if (!address || address.length < 32 || address.length > 44) return false;
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+    return base58Regex.test(address);
+}
+
 async function saveWallet() {
     var wallet = document.getElementById('wallet-input').value.trim();
     if (!wallet) { showPopup('Please enter a wallet address', true); return; }
+
+    // Validate Solana address format
+    if (!isValidSolanaAddress(wallet)) {
+        showPopup('Invalid Solana wallet address. Please enter a valid address (32-44 characters, Base58 encoded).', true);
+        return;
+    }
+
     var res = await fetch('/api/wallet', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wallet: wallet})});
     if (res.ok) showPopup('Your wallet is now saved. Congratulations on becoming an <span style="color:var(--primary);">EARNR</span>!');
     else showPopup('Error saving wallet', true);
@@ -2100,47 +2242,8 @@ function showPopup(message, isError) {
                 // Store tasks for later reference
                 allAvailableTasks = data.tasks || [];
 
-                const container = document.querySelector('#tasks .tasks-list') || document.querySelector('#tasks .empty-state')?.parentElement;
-
-                if (allAvailableTasks.length > 0) {
-                    const userFollowers = currentUser?.followers_count || 0;
-
-                    const tasksHtml = allAvailableTasks.map(task => {
-                        const minFollowers = task.min_followers || 0;
-                        const meetsRequirement = minFollowers === 0 || userFollowers >= minFollowers;
-                        const slotsLeft = task.slots_total - (task.slots_filled || 0);
-
-                        return `
-                        <div class="task-card" data-task-id="${task.id}">
-                            <div class="task-reward">
-                                <div class="task-reward-value">${formatNumber(task.reward)}</div>
-                                <div class="task-reward-token">USDC</div>
-                            </div>
-                            <div class="task-content">
-                                <h3>${task.title}</h3>
-                                <p>${task.description}</p>
-                                <div class="task-tags">
-                                    <span class="task-tag">${task.category}</span>
-                                    <span class="task-tag ${task.difficulty.toLowerCase()}">${task.difficulty}</span>
-                                    ${minFollowers > 0 ? `<span class="task-tag" style="background:rgba(255,165,2,0.08);color:var(--yellow);border:1px solid rgba(255,165,2,0.2);">${minFollowers.toLocaleString()}+ FOLLOWERS</span>` : ''}
-                                </div>
-                            </div>
-                            <div class="task-slots">
-                                <div class="slots-bar">
-                                    <div class="slots-bar-fill" style="width:${((task.slots_filled || 0) / task.slots_total) * 100}%"></div>
-                                </div>
-                                <div class="slots-text">${slotsLeft} of ${task.slots_total} slots left</div>
-                                ${minFollowers > 0 && !meetsRequirement ? `<div style="font-size:0.6rem;color:var(--red);margin-top:0.3rem;">You need ${minFollowers.toLocaleString()} followers</div>` : ''}
-                            </div>
-                            <div class="task-action">
-                                ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
-                                <button class="btn btn-primary ${!meetsRequirement ? 'disabled' : ''}" onclick="openSubmitModal('${task.id}')" ${!meetsRequirement ? 'title="You don\'t meet the follower requirement"' : ''}>SUBMIT</button>
-                            </div>
-                        </div>
-                    `}).join('');
-
-                    container.innerHTML = `<div class="tasks-list">${tasksHtml}</div>`;
-                }
+                // Render with current filters
+                renderFilteredTasks();
             } catch (err) {
                 console.error('Failed to load tasks:', err);
             }
