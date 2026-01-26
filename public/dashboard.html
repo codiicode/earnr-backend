@@ -1931,84 +1931,100 @@ function showPopup(message, isError) {
                 payoutData = data;
 
                 // Update wallet address display
-                if (data.stats && data.stats.walletAddress) {
+                const walletEl = document.getElementById('payoutWalletAddress');
+                const solscanEl = document.getElementById('solscanLink');
+
+                if (walletEl && data.stats && data.stats.walletAddress) {
                     const addr = data.stats.walletAddress;
                     const shortAddr = addr.substring(0, 4) + '...' + addr.substring(addr.length - 4);
-                    document.getElementById('payoutWalletAddress').textContent = shortAddr;
-                    document.getElementById('payoutWalletAddress').title = addr;
-                    document.getElementById('solscanLink').href = 'https://solscan.io/account/' + addr;
-                } else {
-                    document.getElementById('payoutWalletAddress').textContent = 'Not configured';
-                    document.getElementById('solscanLink').style.display = 'none';
+                    walletEl.textContent = shortAddr;
+                    walletEl.title = addr;
+                    if (solscanEl) solscanEl.href = 'https://solscan.io/account/' + addr;
+                } else if (walletEl) {
+                    walletEl.textContent = 'Not configured';
+                    if (solscanEl) solscanEl.style.display = 'none';
                 }
 
-                // Update stats
-                document.getElementById('treasuryBalance').textContent = formatUSDC(data.stats?.balance || 0);
-                document.getElementById('totalPaidOut').textContent = formatUSDC(data.stats?.totalPaidOut || 0);
-                document.getElementById('txCount').textContent = data.stats?.transactionCount || 0;
+                // Update stats - always show values even if 0
+                const treasuryEl = document.getElementById('treasuryBalance');
+                const paidOutEl = document.getElementById('totalPaidOut');
+                const txCountEl = document.getElementById('txCount');
+                const lastPayoutTimeEl = document.getElementById('lastPayoutTime');
+                const lastPayoutAmountEl = document.getElementById('lastPayoutAmount');
+
+                if (treasuryEl) treasuryEl.textContent = formatUSDC(data.stats?.balance || 0);
+                if (paidOutEl) paidOutEl.textContent = formatUSDC(data.stats?.totalPaidOut || 0);
+                if (txCountEl) txCountEl.textContent = data.stats?.transactionCount || 0;
 
                 // Last payout
                 if (data.transactions && data.transactions.length > 0) {
                     const lastTx = data.transactions[0];
-                    document.getElementById('lastPayoutTime').textContent = timeAgo(lastTx.timestamp);
-                    document.getElementById('lastPayoutAmount').textContent = '+$' + lastTx.amount.toFixed(2) + ' USDC';
+                    if (lastPayoutTimeEl) lastPayoutTimeEl.textContent = timeAgo(lastTx.timestamp);
+                    if (lastPayoutAmountEl) lastPayoutAmountEl.textContent = '+$' + lastTx.amount.toFixed(2) + ' USDC';
                 } else {
-                    document.getElementById('lastPayoutTime').textContent = '-';
-                    document.getElementById('lastPayoutAmount').textContent = 'no payouts yet';
+                    if (lastPayoutTimeEl) lastPayoutTimeEl.textContent = '-';
+                    if (lastPayoutAmountEl) lastPayoutAmountEl.textContent = 'no payouts yet';
                 }
 
                 // Update transactions feed
                 const feed = document.getElementById('payoutsFeed');
-                if (data.transactions && data.transactions.length > 0) {
-                    feed.innerHTML = data.transactions.map(tx => `
-                        <div class="payout-item">
-                            <div class="payout-icon">◎</div>
-                            <div class="payout-info">
-                                <h4>USDC Payout</h4>
-                                <div class="payout-wallet">${tx.recipient.substring(0, 4)}...${tx.recipient.substring(tx.recipient.length - 4)}</div>
-                            </div>
-                            <div class="payout-time">
-                                ${timeAgo(tx.timestamp)}
-                                <div style="font-size:0.6rem;margin-top:0.25rem;">
-                                    <a href="https://solscan.io/tx/${tx.signature}" target="_blank" style="color:var(--green);">View TX →</a>
+                if (feed) {
+                    if (data.transactions && data.transactions.length > 0) {
+                        feed.innerHTML = data.transactions.map(tx => `
+                            <div class="payout-item">
+                                <div class="payout-icon">◎</div>
+                                <div class="payout-info">
+                                    <h4>USDC Payout</h4>
+                                    <div class="payout-wallet">${tx.recipient.substring(0, 4)}...${tx.recipient.substring(tx.recipient.length - 4)}</div>
+                                </div>
+                                <div class="payout-time">
+                                    ${timeAgo(tx.timestamp)}
+                                    <div style="font-size:0.6rem;margin-top:0.25rem;">
+                                        <a href="https://solscan.io/tx/${tx.signature}" target="_blank" style="color:var(--green);">View TX →</a>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="payout-amount">+$${tx.amount.toFixed(2)}</div>
+                                    <div class="payout-usd">USDC</div>
                                 </div>
                             </div>
-                            <div>
-                                <div class="payout-amount">+$${tx.amount.toFixed(2)}</div>
-                                <div class="payout-usd">USDC</div>
+                        `).join('');
+                    } else if (data.error) {
+                        feed.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">!</div>
+                                <div class="empty-state-text">${data.error}</div>
+                                <div class="empty-state-sub">Please configure PAYOUT_WALLET_ADDRESS</div>
                             </div>
-                        </div>
-                    `).join('');
-                } else if (data.error) {
-                    feed.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">!</div>
-                            <div class="empty-state-text">${data.error}</div>
-                            <div class="empty-state-sub">Please configure PAYOUT_WALLET_ADDRESS</div>
-                        </div>
-                    `;
-                } else {
-                    feed.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">◎</div>
-                            <div class="empty-state-text">No payouts yet</div>
-                            <div class="empty-state-sub">Transactions will appear here in real-time</div>
-                        </div>
-                    `;
+                        `;
+                    } else {
+                        feed.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">◎</div>
+                                <div class="empty-state-text">No payouts yet</div>
+                                <div class="empty-state-sub">Transactions will appear here in real-time</div>
+                            </div>
+                        `;
+                    }
                 }
 
-                // Update chart
+                // Update chart - always render even with empty data
                 updatePayoutChart(data.transactions || []);
 
             } catch (err) {
                 console.error('Failed to load payouts:', err);
-                document.getElementById('payoutsFeed').innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">!</div>
-                        <div class="empty-state-text">Failed to load data</div>
-                        <div class="empty-state-sub">${err.message}</div>
-                    </div>
-                `;
+                const feed = document.getElementById('payoutsFeed');
+                if (feed) {
+                    feed.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">!</div>
+                            <div class="empty-state-text">Failed to load data</div>
+                            <div class="empty-state-sub">${err.message}</div>
+                        </div>
+                    `;
+                }
+                // Still try to render empty chart on error
+                updatePayoutChart([]);
             }
         }
 
@@ -2021,7 +2037,10 @@ function showPopup(message, isError) {
 
         function updatePayoutChart(transactions) {
             const ctx = document.getElementById('payoutChart');
-            if (!ctx) return;
+            if (!ctx) {
+                console.log('Chart canvas not found');
+                return;
+            }
 
             // Group transactions by day
             const dailyData = {};
@@ -2036,18 +2055,23 @@ function showPopup(message, isError) {
             }
 
             // Sum up transactions per day
-            transactions.forEach(tx => {
-                const date = new Date(tx.timestamp).toISOString().split('T')[0];
-                if (dailyData[date] !== undefined) {
-                    dailyData[date] += tx.amount;
-                }
-            });
+            if (transactions && transactions.length > 0) {
+                transactions.forEach(tx => {
+                    const date = new Date(tx.timestamp).toISOString().split('T')[0];
+                    if (dailyData[date] !== undefined) {
+                        dailyData[date] += tx.amount;
+                    }
+                });
+            }
 
             const labels = Object.keys(dailyData).map(d => {
                 const date = new Date(d);
                 return date.getDate() + '/' + (date.getMonth() + 1);
             });
             const values = Object.values(dailyData);
+
+            // Calculate max for y-axis (minimum of 100 for empty state)
+            const maxValue = Math.max(...values, 100);
 
             // Destroy existing chart if it exists
             if (payoutChart) {
@@ -2115,6 +2139,8 @@ function showPopup(message, isError) {
                         },
                         y: {
                             display: true,
+                            beginAtZero: true,
+                            suggestedMax: maxValue,
                             grid: { color: 'rgba(255,255,255,0.03)' },
                             ticks: {
                                 color: '#666',
