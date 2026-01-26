@@ -1491,24 +1491,20 @@
                 </div>
 
                 <div class="settings-section">
-                    <div class="settings-header">Payout Settings</div>
-                    <div class="settings-body">
-                        <div class="settings-row">
-                            <div class="settings-label">Solana Wallet</div>
-                            <input type="text" class="input-field" placeholder="Enter your SOL address to receive payouts...">
-                            <button class="btn">SAVE</button>
-                        </div>
-                        <div class="settings-row">
-                            <div class="settings-label">Connected Account</div>
-                            <span style="color:var(--gray);font-size:0.85rem">Not connected</span>
-                            <button class="btn btn-x" style="padding:0.5rem 1rem;">
-                                <svg viewBox="0 0 24 24" fill="currentColor" style="width:10px;height:10px"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                                CONNECT
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div class="settings-header">Payout Settings</div>
+    <div class="settings-body">
+        <div class="settings-row">
+            <div class="settings-label">Solana Wallet</div>
+            <input type="text" id="wallet-input" class="input-field" placeholder="Enter your SOL address to receive payouts...">
+            <button class="btn" onclick="saveWallet()">SAVE</button>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">Connected Account</div>
+            <span id="connected-account" style="color:var(--gray);font-size:0.85rem">Not connected</span>
+            <span id="x-connected" style="display:none;color:var(--green);font-size:0.85rem"></span>
+        </div>
+    </div>
+</div>
 
             <!-- Payouts -->
             <div class="page" id="payouts">
@@ -1755,15 +1751,22 @@
                 const res = await fetch('/api/me', { credentials: 'include' });
                 const data = await res.json();
                 
-                if (data.user) {
-                    currentUser = data.user;
-                    updateUIForUser();
-                }
+if (data.user) {
+    currentUser = data.user;
+    updateUIForUser();
+    if (data.user.wallet_address) document.getElementById('wallet-input').value = data.user.wallet_address;
+    if (data.user.username) { document.getElementById('connected-account').style.display = 'none'; document.getElementById('x-connected').style.display = 'inline'; document.getElementById('x-connected').textContent = '@' + data.user.username + ' ✓'; }
+}
             } catch (err) {
                 console.error('Auth check failed:', err);
             }
         }
-
+async function saveWallet() {
+    var wallet = document.getElementById('wallet-input').value.trim();
+    var res = await fetch('/api/wallet', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wallet: wallet})});
+    if (res.ok) alert('Wallet saved!');
+    else alert('Error saving wallet');
+}
         function updateUIForUser() {
             const btn = document.getElementById('connectBtn');
             
