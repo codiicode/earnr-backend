@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EARNR.XYZ — Get Paid for Social Tasks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Geist Mono';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-Regular.woff2') format('woff2');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'Geist Mono';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-Medium.woff2') format('woff2');
+            font-weight: 500;
+        }
+        @font-face {
+            font-family: 'Geist Mono';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-SemiBold.woff2') format('woff2');
+            font-weight: 600;
+        }
+
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            --green: #00FF66;
+            --green-dim: rgba(0, 255, 102, 0.06);
+            --green-border: rgba(0, 255, 102, 0.15);
+            --green-glow: rgba(0, 255, 102, 0.4);
+            --gray: #666;
+            --gray-light: #999;
+            --border: #161616;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        
+        body {
+            font-family: 'Geist Mono', monospace;
+            background: var(--black);
+            color: var(--white);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        a { color: inherit; text-decoration: none; }
+        ::selection { background: var(--green); color: var(--black); }
+
+        /* Animated Background Grid */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 102, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 102, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        /* Floating Particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--green);
+            border-radius: 50%;
+            opacity: 0;
+            animation: float 8s infinite;
+        }
+
+        @keyframes float {
+            0% { opacity: 0; transform: translateY(100vh) scale(0); }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-100vh) scale(1); }
+        }
+
+        /* Glowing Orb */
+        .glow-orb {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--green-glow) 0%, transparent 70%);
+            filter: blur(80px);
+            z-index: 0;
+            animation: orbFloat 15s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .glow-orb.orb1 {
+            top: -200px;
+            right: -200px;
+        }
+
+        .glow-orb.orb2 {
+            bottom: -300px;
+            left: -200px;
+            animation-delay: -7s;
+            opacity: 0.5;
+        }
+
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-50px, 50px) scale(1.1); }
+            50% { transform: translate(50px, -30px) scale(0.9); }
+            75% { transform: translate(-30px, -50px) scale(1.05); }
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .logo-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            font-size: 0.75rem;
+            color: var(--gray-light);
+        }
+
+        .nav-links a:hover {
+            color: var(--green);
+        }
+
+        .btn-signin {
+            background: transparent;
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 0.6rem 1.5rem;
+            font-family: inherit;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-signin:hover {
+            background: var(--green);
+            color: var(--black);
+        }
+
+        /* Hero Section */
+        .hero {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--green-dim);
+            border: 1px solid var(--green-border);
+            padding: 0.5rem 1rem;
+            font-size: 0.65rem;
+            letter-spacing: 0.1em;
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .badge-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .badge-main {
+            font-weight: 600;
+        }
+
+        .badge-ca {
+            color: var(--gray-light);
+            font-size: 0.55rem;
+        }
+
+        .hero-badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .hero h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(3rem, 10vw, 7rem);
+            font-weight: 400;
+            line-height: 1;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.8s ease 0.1s backwards;
+        }
+
+        .hero h1 span {
+            color: var(--green);
+            font-style: italic;
+        }
+
+        .hero-sub {
+            font-size: 1rem;
+            color: var(--gray-light);
+            max-width: 500px;
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.8s ease 0.2s backwards;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            animation: fadeInUp 0.8s ease 0.3s backwards;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--green);
+            color: var(--black);
+            padding: 1rem 2rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px var(--green-glow);
+        }
+
+        .btn-primary svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: transparent;
+            color: var(--white);
+            padding: 1rem 2rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        /* Live Stats Ticker */
+        .stats-ticker {
+            margin-top: 5rem;
+            display: flex;
+            gap: 4rem;
+            animation: fadeInUp 0.8s ease 0.4s backwards;
+        }
+
+        .ticker-item {
+            text-align: center;
+        }
+
+        .ticker-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--green);
+            font-family: 'Instrument Serif', serif;
+        }
+
+        .ticker-label {
+            font-size: 0.65rem;
+            color: var(--gray);
+            letter-spacing: 0.1em;
+            margin-top: 0.25rem;
+        }
+
+        /* How It Works */
+        .section {
+            position: relative;
+            z-index: 10;
+            padding: 6rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-title h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2.5rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .section-title p {
+            color: var(--gray-light);
+            font-size: 0.85rem;
+        }
+
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .step-item {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 2rem;
+            padding: 2.5rem 0;
+            position: relative;
+            transition: all 0.4s ease;
+        }
+
+        .step-item:hover {
+            transform: translateX(10px);
+        }
+
+        .step-item:hover .step-number {
+            text-shadow: 0 0 40px var(--green-glow);
+        }
+
+        .step-item:hover .step-title {
+            color: var(--green);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+        }
+
+        .step-number {
+            font-family: 'Instrument Serif', serif;
+            font-size: 4rem;
+            font-style: italic;
+            color: var(--green);
+            line-height: 1;
+            min-width: 100px;
+            transition: all 0.4s ease;
+            opacity: 0.6;
+        }
+
+        .step-item:hover .step-number {
+            opacity: 1;
+        }
+
+        .step-line {
+            flex: 1;
+            width: 1px;
+            background: linear-gradient(180deg, var(--green) 0%, var(--border) 100%);
+            min-height: 100%;
+            position: relative;
+        }
+
+        .step-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -4px;
+            width: 9px;
+            height: 9px;
+            background: var(--green);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--green-glow);
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+
+        .step-item:nth-child(2) .step-line::before { animation-delay: 0.5s; }
+        .step-item:nth-child(3) .step-line::before { animation-delay: 1s; }
+        .step-item:nth-child(4) .step-line::before { animation-delay: 1.5s; }
+
+        .step-line.last {
+            background: linear-gradient(180deg, var(--green) 0%, transparent 100%);
+        }
+
+        .step-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--white);
+            transition: color 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .step-desc {
+            font-size: 0.8rem;
+            color: var(--gray-light);
+            line-height: 1.8;
+            max-width: 400px;
+        }
+
+        @media (max-width: 768px) {
+            .step-item {
+                grid-template-columns: 80px 1fr;
+                gap: 1rem;
+            }
+
+            .step-number {
+                font-size: 2.5rem;
+                min-width: 60px;
+            }
+
+            .step-header {
+                gap: 1rem;
+            }
+        }
+
+        /* Task Types - Marquee */
+        .tasks-marquee {
+            overflow: hidden;
+            padding: 3rem 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            margin: 2rem 0;
+        }
+
+        .marquee-track {
+            display: flex;
+            gap: 2rem;
+            animation: marquee 20s linear infinite;
+            width: max-content;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .marquee-item {
+            font-family: 'Instrument Serif', serif;
+            font-size: 3rem;
+            font-style: italic;
+            color: var(--white);
+            white-space: nowrap;
+            transition: color 0.3s;
+        }
+
+        .marquee-item:hover {
+            color: var(--green);
+        }
+
+        .marquee-item.highlight {
+            color: var(--green);
+        }
+
+        .marquee-divider {
+            font-size: 3rem;
+            color: var(--green);
+            opacity: 0.3;
+        }
+
+        .task-features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .task-feature {
+            position: relative;
+        }
+
+        .feature-line {
+            height: 1px;
+            background: linear-gradient(90deg, var(--green), transparent);
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .feature-label {
+            font-size: 0.6rem;
+            letter-spacing: 0.2em;
+            color: var(--gray);
+        }
+
+        .feature-value {
+            font-size: 0.9rem;
+            color: var(--white);
+        }
+
+        @media (max-width: 768px) {
+            .marquee-item, .marquee-divider {
+                font-size: 2rem;
+            }
+            
+            .task-features {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+        }
+
+        /* CTA Section */
+        .cta-section {
+            text-align: center;
+            padding: 8rem 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        .cta-section h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 3rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section h2 span {
+            color: var(--green);
+            font-style: italic;
+        }
+
+        .cta-section p {
+            color: var(--gray-light);
+            margin-bottom: 2rem;
+        }
+
+        /* Footer */
+        footer {
+            position: relative;
+            z-index: 10;
+            border-top: 1px solid var(--border);
+            padding: 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.7rem;
+            color: var(--gray);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .footer-links a:hover {
+            color: var(--green);
+        }
+
+        /* Animated Counter */
+        .counter {
+            display: inline-block;
+        }
+
+        /* Mobile */
+        @media (max-width: 900px) {
+            header {
+                padding: 1rem 1.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-sub {
+                font-size: 0.85rem;
+            }
+
+            .stats-ticker {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 2rem;
+            }
+
+            .tasks-showcase {
+                grid-template-columns: 1fr;
+            }
+
+            footer {
+                flex-direction: column;
+                gap: 1.5rem;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .hero-cta {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-grid"></div>
+    <div class="glow-orb orb1"></div>
+    <div class="glow-orb orb2"></div>
+    <div class="particles" id="particles"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <span class="logo-dot"></span>
+            EARNR.XYZ
+        </div>
+        <nav class="nav-links">
+            <a href="#how-it-works">How It Works</a>
+            <a href="#tasks">Tasks</a>
+            <a href="https://x.com/earnrxyz" target="_blank">Twitter</a>
+        </nav>
+        <a href="/auth/login">
+            <button class="btn-signin">SIGN IN WITH X</button>
+        </a>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            <div class="badge-content">
+                <span class="badge-main">LIVE ON SOLANA</span>
+                <span class="badge-ca">CA: XXXXX</span>
+            </div>
+        </div>
+        <h1>Complete tasks.<br>Get <span>paid.</span></h1>
+        <p class="hero-sub">Time to start getting paid for your engagement. Earn USDC for completing simple social media tasks.</p>
+        <div class="hero-cta">
+            <a href="/auth/login">
+                <button class="btn-primary">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    START EARNING
+                </button>
+            </a>
+            <a href="#how-it-works">
+                <button class="btn-secondary">Learn More</button>
+            </a>
+        </div>
+
+        <div class="stats-ticker">
+            <div class="ticker-item">
+                <div class="ticker-value" id="totalEarnrs">0</div>
+                <div class="ticker-label">EARNRS</div>
+            </div>
+            <div class="ticker-item">
+                <div class="ticker-value">$<span id="totalPaid">0</span></div>
+                <div class="ticker-label">PAID OUT</div>
+            </div>
+            <div class="ticker-item">
+                <div class="ticker-value" id="totalTasks">0</div>
+                <div class="ticker-label">ACTIVE TASKS</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section" id="how-it-works">
+        <div class="section-title">
+            <h2>How It Works</h2>
+            <p>Four simple steps to start earning</p>
+        </div>
+
+        <div class="steps-container">
+            <div class="step-item">
+                <div class="step-header">
+                    <span class="step-number">01</span>
+                    <div class="step-line"></div>
+                </div>
+                <h3 class="step-title">Connect X</h3>
+                <p class="step-desc">No wallet connect, simply sign in with your X account. Your X followers and engagement can help unlock premium tasks.</p>
+            </div>
+
+            <div class="step-item">
+                <div class="step-header">
+                    <span class="step-number">02</span>
+                    <div class="step-line"></div>
+                </div>
+                <h3 class="step-title">Browse Tasks</h3>
+                <p class="step-desc">Find tasks that match your availability and interest. Quote tweets, like, share, short form content and much more.</p>
+            </div>
+
+            <div class="step-item">
+                <div class="step-header">
+                    <span class="step-number">03</span>
+                    <div class="step-line"></div>
+                </div>
+                <h3 class="step-title">Submit Task</h3>
+                <p class="step-desc">Complete the task and submit proof. Our team reviews as soon as possible.</p>
+            </div>
+
+            <div class="step-item">
+                <div class="step-header">
+                    <span class="step-number">04</span>
+                    <div class="step-line last"></div>
+                </div>
+                <h3 class="step-title">Earn</h3>
+                <p class="step-desc">Once reviewed, USDC will be sent directly to your Solana wallet. No minimums, instant payouts.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Task Types -->
+    <section class="section" id="tasks">
+        <div class="section-title">
+            <h2>Task Types</h2>
+            <p>Multiple ways to earn</p>
+        </div>
+
+        <div class="tasks-marquee">
+            <div class="marquee-track">
+                <div class="marquee-item">QUOTE TWEETS</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">LIKES</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">RETWEETS</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">SHARES</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">CONTENT</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">TIKTOK</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">INSTAGRAM</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">YOUTUBE</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">X</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item highlight">ENGAGE AND EARN</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">QUOTE TWEETS</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">LIKES</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">RETWEETS</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">SHARES</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">CONTENT</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">TIKTOK</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">INSTAGRAM</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">YOUTUBE</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item">X</div>
+                <div class="marquee-divider">/</div>
+                <div class="marquee-item highlight">ENGAGE AND EARN</div>
+                <div class="marquee-divider">/</div>
+            </div>
+        </div>
+
+        <div class="task-features">
+            <div class="task-feature">
+                <div class="feature-line"></div>
+                <div class="feature-content">
+                    <span class="feature-label">PLATFORMS</span>
+                    <span class="feature-value">X, TikTok, Instagram, YouTube</span>
+                </div>
+            </div>
+            <div class="task-feature">
+                <div class="feature-line"></div>
+                <div class="feature-content">
+                    <span class="feature-label">PAYOUT</span>
+                    <span class="feature-value">USDC on Solana</span>
+                </div>
+            </div>
+            <div class="task-feature">
+                <div class="feature-line"></div>
+                <div class="feature-content">
+                    <span class="feature-label">REVIEW TIME</span>
+                    <span class="feature-value">Under 24 hours</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <h2>Ready to become an <span>earnr?</span></h2>
+        <p>Join us and start getting paid.</p>
+        <a href="/auth/login">
+            <button class="btn-primary">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                START EARNING NOW
+            </button>
+        </a>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="logo">
+            <span class="logo-dot"></span>
+            EARNR.XYZ
+        </div>
+        <div>© 2025 EARNR</div>
+    </footer>
+
+    <script>
+        // Create floating particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 30; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 8 + 's';
+            particle.style.animationDuration = (6 + Math.random() * 4) + 's';
+            particlesContainer.appendChild(particle);
+        }
+
+        // Fetch live stats
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                animateCounter('totalEarnrs', data.totalUsers || 0);
+                animateCounter('totalPaid', data.totalPaidOut || 0);
+                animateCounter('totalTasks', data.totalTasks || 0);
+            } catch (err) {
+                console.log('Stats not available');
+            }
+        }
+
+        function animateCounter(id, target) {
+            const el = document.getElementById(id);
+            const duration = 1500;
+            const start = 0;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = Math.floor(start + (target - start) * eased);
+                el.textContent = current.toLocaleString();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+
+        loadStats();
+    </script>
+</body>
+</html>
