@@ -530,6 +530,10 @@
                             <div class="detail-value reward-value">${sub.tasks?.reward || 0} USDC</div>
                         </div>
                         <div class="detail-item">
+                            <div class="detail-label">WALLET ADDRESS</div>
+                            <div class="detail-value">${sub.users?.wallet_address || '<span style="color:var(--red)">Not set</span>'}</div>
+                        </div>
+                        <div class="detail-item">
                             <div class="detail-label">PROOF URL</div>
                             <div class="detail-value"><a href="${sub.proof_url}" target="_blank">${sub.proof_url}</a></div>
                         </div>
