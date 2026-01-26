@@ -90,6 +90,124 @@ module.exports = async function(req, res) {
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
     if (p === '/api/wallet' && req.method === 'POST') { var u = await getUser(); if(!u) return res.status(401).json({error: 'Not logged in'}); var body = ''; for await (var chunk of req) { body += chunk; } var data = JSON.parse(body); await supabase.from('users').update({wallet_address: String(data.wallet || '').trim()}).eq('id', u.id); return res.status(200).json({success: true}); }
 
+    // Payouts API - Fetch live Solana transactions from payout wallet
+    if (p === '/api/payouts') {
+      var PAYOUT_WALLET = String(process.env.PAYOUT_WALLET_ADDRESS || '').trim();
+      if (!PAYOUT_WALLET) {
+        return res.status(200).json({
+          transactions: [],
+          stats: { balance: 0, totalPaidOut: 0, transactionCount: 0 },
+          error: 'Payout wallet not configured'
+        });
+      }
+
+      try {
+        // Fetch recent transactions using Solana public RPC
+        var txResponse = await fetch('https://api.mainnet-beta.solana.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getSignaturesForAddress',
+            params: [PAYOUT_WALLET, { limit: 50 }]
+          })
+        });
+        var txData = await txResponse.json();
+        var signatures = txData.result || [];
+
+        // Fetch USDC token account balance
+        var USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+        var balanceResponse = await fetch('https://api.mainnet-beta.solana.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getTokenAccountsByOwner',
+            params: [PAYOUT_WALLET, { mint: USDC_MINT }, { encoding: 'jsonParsed' }]
+          })
+        });
+        var balanceData = await balanceResponse.json();
+        var usdcBalance = 0;
+        if (balanceData.result && balanceData.result.value && balanceData.result.value.length > 0) {
+          var tokenInfo = balanceData.result.value[0].account.data.parsed.info;
+          usdcBalance = tokenInfo.tokenAmount.uiAmount || 0;
+        }
+
+        // Get transaction details for each signature (limited to last 20 for performance)
+        var transactions = [];
+        var totalPaidOut = 0;
+
+        for (var i = 0; i < Math.min(signatures.length, 20); i++) {
+          var sig = signatures[i];
+          try {
+            var txDetailRes = await fetch('https://api.mainnet-beta.solana.com', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'getTransaction',
+                params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
+              })
+            });
+            var txDetail = await txDetailRes.json();
+
+            if (txDetail.result) {
+              var meta = txDetail.result.meta;
+              var blockTime = txDetail.result.blockTime;
+              var instructions = txDetail.result.transaction.message.instructions || [];
+
+              // Look for token transfers (USDC payouts)
+              var preBalances = meta.preTokenBalances || [];
+              var postBalances = meta.postTokenBalances || [];
+
+              for (var j = 0; j < postBalances.length; j++) {
+                var post = postBalances[j];
+                if (post.mint === USDC_MINT && post.owner !== PAYOUT_WALLET) {
+                  var pre = preBalances.find(function(p) { return p.accountIndex === post.accountIndex; });
+                  var preAmount = pre ? pre.uiTokenAmount.uiAmount : 0;
+                  var postAmount = post.uiTokenAmount.uiAmount || 0;
+                  var diff = postAmount - preAmount;
+
+                  if (diff > 0) {
+                    transactions.push({
+                      signature: sig.signature,
+                      recipient: post.owner,
+                      amount: diff,
+                      timestamp: blockTime * 1000,
+                      slot: sig.slot
+                    });
+                    totalPaidOut += diff;
+                  }
+                }
+              }
+            }
+          } catch (txErr) {
+            // Skip failed transaction fetches
+          }
+        }
+
+        return res.status(200).json({
+          transactions: transactions,
+          stats: {
+            balance: usdcBalance,
+            totalPaidOut: totalPaidOut,
+            transactionCount: transactions.length,
+            walletAddress: PAYOUT_WALLET
+          }
+        });
+      } catch (err) {
+        console.error('Payouts API error:', err);
+        return res.status(200).json({
+          transactions: [],
+          stats: { balance: 0, totalPaidOut: 0, transactionCount: 0 },
+          error: err.message
+        });
+      }
+    }
+
     var user = await getUser();
     res.setHeader('Content-Type', 'text/html');
     
