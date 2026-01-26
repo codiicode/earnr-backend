@@ -212,6 +212,90 @@ module.exports = async function(req, res) {
       return res.status(200).json({success: true});
     }
 
+    // ============================================
+    // NOTIFICATIONS API
+    // ============================================
+
+    // Get user's notifications
+    if (p === '/api/notifications' && req.method === 'GET') {
+      var u = await getUser();
+      if (!u) return res.status(401).json({error: 'Not logged in'});
+
+      var r = await supabase.from('notifications')
+        .select('*')
+        .eq('user_id', u.id)
+        .order('created_at', {ascending: false})
+        .limit(50);
+
+      return res.status(200).json({notifications: r.data || []});
+    }
+
+    // Mark all notifications as read
+    if (p === '/api/notifications/read' && req.method === 'POST') {
+      var u = await getUser();
+      if (!u) return res.status(401).json({error: 'Not logged in'});
+
+      await supabase.from('notifications')
+        .update({is_read: true})
+        .eq('user_id', u.id)
+        .eq('is_read', false);
+
+      return res.status(200).json({success: true});
+    }
+
+    // Mark single notification as read
+    if (p.match(/^\/api\/notifications\/[^/]+\/read$/) && req.method === 'POST') {
+      var u = await getUser();
+      if (!u) return res.status(401).json({error: 'Not logged in'});
+
+      var notifId = p.split('/')[3];
+      await supabase.from('notifications')
+        .update({is_read: true})
+        .eq('id', notifId)
+        .eq('user_id', u.id);
+
+      return res.status(200).json({success: true});
+    }
+
+    // Helper function to create notifications
+    async function createNotification(userId, type, title, message, relatedId = null) {
+      try {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: type,
+          title: title,
+          message: message,
+          related_id: relatedId,
+          is_read: false
+        });
+      } catch (e) {
+        console.error('Failed to create notification:', e);
+      }
+    }
+
+    // Create notifications for all users when new task is added
+    async function notifyAllUsersNewTask(task) {
+      try {
+        var usersRes = await supabase.from('users').select('id');
+        var users = usersRes.data || [];
+        var notifications = users.map(function(u) {
+          return {
+            user_id: u.id,
+            type: 'NEW_TASK',
+            title: 'New Task Available',
+            message: task.title + ' - ' + task.reward + ' USDC',
+            related_id: task.id,
+            is_read: false
+          };
+        });
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      } catch (e) {
+        console.error('Failed to notify users of new task:', e);
+      }
+    }
+
     // Payouts API - Fetch approved submissions from database
     if (p === '/api/payouts') {
       try {
@@ -391,6 +475,12 @@ module.exports = async function(req, res) {
         console.error('Task create error:', r.error);
         return res.status(500).json({error: 'Failed to create task: ' + r.error.message});
       }
+
+      // Notify all users about new task (only if task is active)
+      if (r.data && r.data.is_active) {
+        await notifyAllUsersNewTask(r.data);
+      }
+
       return res.status(200).json({success: true, task: r.data});
     }
 
@@ -645,6 +735,19 @@ module.exports = async function(req, res) {
         console.log('APPROVE v6: Activity insert failed:', e.message);
       }
 
+      // Step 6: Create notification for user
+      try {
+        await createNotification(
+          sub.data.user_id,
+          'APPROVED',
+          'Submission Approved!',
+          'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was approved! +' + reward + ' USDC',
+          subId
+        );
+      } catch (e) {
+        console.log('APPROVE v6: Notification create failed:', e.message);
+      }
+
       console.log('APPROVE v6: SUCCESS!');
       return res.status(200).json({
         success: true,
@@ -677,7 +780,7 @@ module.exports = async function(req, res) {
       var subId = p.split('/')[4];
       console.log('REJECT: Starting rejection for submission ID:', subId);
 
-      var sub = await supabase.from('submissions').select('*').eq('id', subId).single();
+      var sub = await supabase.from('submissions').select('*, tasks(title)').eq('id', subId).single();
       if (sub.error) {
         console.error('REJECT: Error fetching submission:', sub.error);
         return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message});
@@ -710,6 +813,20 @@ module.exports = async function(req, res) {
       }
 
       console.log('REJECT: SUCCESS - Status verified as REJECTED');
+
+      // Create notification for user
+      try {
+        await createNotification(
+          sub.data.user_id,
+          'REJECTED',
+          'Submission Rejected',
+          'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was not approved.',
+          subId
+        );
+      } catch (e) {
+        console.log('REJECT: Notification create failed:', e.message);
+      }
+
       return res.status(200).json({success: true, submission: verifyResult.data});
     }
 
