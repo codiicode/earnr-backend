@@ -403,6 +403,19 @@
         let allSubmissions = [];
         let currentFilter = 'PENDING';
 
+        function showKeyWarning(keyRole) {
+            // Create warning banner at top of page
+            const banner = document.createElement('div');
+            banner.id = 'keyWarningBanner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ff4757;color:#fff;padding:1rem;text-align:center;z-index:9999;font-size:0.9rem;';
+            banner.innerHTML = `
+                <strong>WARNING: Wrong Supabase key!</strong> Current: ${keyRole} (need: service_role)<br>
+                <span style="font-size:0.8rem">Approvals will NOT persist. Fix: Supabase Dashboard → Settings → API → Copy service_role key → Vercel → Environment Variables → Update SUPABASE_SERVICE_KEY → Redeploy</span>
+                <button onclick="this.parentElement.remove()" style="margin-left:1rem;background:#fff;color:#ff4757;border:none;padding:0.25rem 0.5rem;cursor:pointer;">X</button>
+            `;
+            document.body.prepend(banner);
+        }
+
         // Check if already authenticated
         if (adminKey) {
             verifyAndLoad();
@@ -443,6 +456,14 @@
                 document.getElementById('authPanel').classList.remove('active');
                 document.getElementById('mainPanel').classList.add('active');
                 document.getElementById('logoutBtn').style.display = 'block';
+
+                // Check for debug info and show warning if wrong key
+                if (data._debug) {
+                    console.log('Server debug:', data._debug);
+                    if (!data._debug.isServiceKey) {
+                        showKeyWarning(data._debug.keyRole);
+                    }
+                }
 
                 allSubmissions = data.submissions || [];
                 updateStats();

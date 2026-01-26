@@ -5,6 +5,7 @@ const path = require('path');
 
 // IMPORTANT: Must use service_role key (not anon key) to bypass RLS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const CODE_VERSION = 'v3-2026-01-26';
 
 // Decode JWT to check if it's service_role or anon key
 function getKeyRole(jwt) {
@@ -244,7 +245,14 @@ module.exports = async function(req, res) {
       if (!validAdminKey) return res.status(500).json({error: 'ADMIN_KEY not configured on server'});
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var r = await supabase.from('submissions').select('*, users(*), tasks(*)').order('created_at', {ascending: false});
-      return res.status(200).json({submissions: r.data || []});
+      return res.status(200).json({
+        submissions: r.data || [],
+        _debug: {
+          codeVersion: CODE_VERSION,
+          keyRole: KEY_ROLE,
+          isServiceKey: IS_SERVICE_KEY
+        }
+      });
     }
 
     // Debug endpoint to check database connection and key type
