@@ -1276,7 +1276,7 @@
                     </div>
                     <div class="nav-item" data-page="tasks">
                         <span class="nav-icon">-</span>Browse Tasks
-                        <span class="nav-badge">0</span>
+                        <span class="nav-badge" id="task-count-badge">0</span>
                     </div>
                     <div class="nav-item" data-page="submissions">
                         <span class="nav-icon">-</span>My Submissions
@@ -1633,7 +1633,7 @@
                 <span>HOME</span>
             </div>
             <div class="mobile-nav-item" data-page="tasks">
-                <span>-</span>
+                <span id="mobile-task-count">-</span>
                 <span>TASKS</span>
             </div>
             <div class="mobile-nav-item" data-page="submissions">
@@ -2241,9 +2241,12 @@ function showPopup(message, isError) {
             try {
                 const res = await fetch('/api/tasks');
                 const data = await res.json();
-                
+
+                // Update task count badges
+                updateTaskCount(data.tasks?.length || 0);
+
                 const container = document.querySelector('#tasks .tasks-list') || document.querySelector('#tasks .empty-state')?.parentElement;
-                
+
                 if (data.tasks && data.tasks.length > 0) {
                     const tasksHtml = data.tasks.map(task => `
                         <div class="task-card" data-task-id="${task.id}">
@@ -2270,11 +2273,35 @@ function showPopup(message, isError) {
                             </div>
                         </div>
                     `).join('');
-                    
+
                     container.innerHTML = `<div class="tasks-list">${tasksHtml}</div>`;
                 }
             } catch (err) {
                 console.error('Failed to load tasks:', err);
+            }
+        }
+
+        function updateTaskCount(count) {
+            // Update sidebar badge
+            const sidebarBadge = document.getElementById('task-count-badge');
+            if (sidebarBadge) {
+                sidebarBadge.textContent = count;
+            }
+
+            // Update mobile nav
+            const mobileCount = document.getElementById('mobile-task-count');
+            if (mobileCount) {
+                mobileCount.textContent = count;
+            }
+        }
+
+        async function fetchTaskCount() {
+            try {
+                const res = await fetch('/api/tasks');
+                const data = await res.json();
+                updateTaskCount(data.tasks?.length || 0);
+            } catch (err) {
+                console.error('Failed to fetch task count:', err);
             }
         }
 
@@ -2476,6 +2503,7 @@ function showPopup(message, isError) {
             await loadActivity();
             await loadLeaderboard();
             await loadPayouts();
+            await fetchTaskCount();
             startHeartbeat();
 
             // Refresh payouts every 30 seconds
