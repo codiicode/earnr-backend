@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -1277,6 +1278,10 @@
                     <div class="nav-item" data-page="submissions">
                         <span class="nav-icon">-</span>My Submissions
                     </div>
+                    <div class="nav-item" data-page="payouts">
+                        <span class="nav-icon">-</span>Payouts
+                        <span class="nav-badge live">LIVE</span>
+                    </div>
                 </div>
                 <div class="nav-section">
                     <div class="nav-section-title">Account</div>
@@ -1334,24 +1339,24 @@
             <div class="page active" id="dashboard">
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Total Earned</div>
-                        <div class="stat-value">0</div>
+                        <div class="stat-label">Total Paid Out</div>
+                        <div class="stat-value" id="dash-total-paid">$0</div>
                         <div class="stat-change">USDC</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-label">Active Tasks</div>
+                        <div class="stat-value" id="dash-active-tasks">0</div>
+                        <div class="stat-change">available now</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value" id="dash-total-users">0</div>
+                        <div class="stat-change">registered</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-label">Tasks Completed</div>
-                        <div class="stat-value">0</div>
-                        <div class="stat-change">lifetime</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Success Rate</div>
-                        <div class="stat-value">-</div>
-                        <div class="stat-change">no data yet</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Global Rank</div>
-                        <div class="stat-value">-</div>
-                        <div class="stat-change">unranked</div>
+                        <div class="stat-value" id="dash-tasks-done">0</div>
+                        <div class="stat-change">all time</div>
                     </div>
                 </div>
 
@@ -1478,6 +1483,57 @@
         </div>
     </div>
 </div>
+
+            <!-- Payouts -->
+            <div class="page" id="payouts">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Lifetime Paid Out</div>
+                        <div class="stat-value" id="lifetime-paid">$0</div>
+                        <div class="stat-change">total USDC</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">24h Payouts</div>
+                        <div class="stat-value" id="daily-paid">$0</div>
+                        <div class="stat-change">last 24 hours</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-value" id="total-tx">0</div>
+                        <div class="stat-change">payouts made</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Avg Payout</div>
+                        <div class="stat-value" id="avg-payout">$0</div>
+                        <div class="stat-change">per transaction</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:2rem;">
+                    <div class="card-header">
+                        <span class="card-title">Payout History</span>
+                        <div class="live-badge">
+                            <span class="live-dot"></span>LIVE
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="payoutChart" style="width:100%;height:250px;"></canvas>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:2rem;">
+                    <div class="card-header">
+                        <span class="card-title">Recent Payouts</span>
+                    </div>
+                    <div class="card-body" id="payoutsFeed">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">$</div>
+                            <div class="empty-state-text">No payouts yet</div>
+                            <div class="empty-state-sub">Completed task payouts will appear here</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -1495,6 +1551,10 @@
             <div class="mobile-nav-item" data-page="submissions">
                 <span>⛏</span>
                 <span>MINE</span>
+            </div>
+            <div class="mobile-nav-item" data-page="payouts">
+                <span>$</span>
+                <span>PAYOUTS</span>
             </div>
             <div class="mobile-nav-item" data-page="profile">
                 <span id="mobile-profile-icon">-</span>
@@ -1560,7 +1620,7 @@
             document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
             document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
 
-            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile' };
+            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts' };
             document.getElementById('pageTitle').textContent = titles[page];
 
             document.getElementById('sidebar').classList.remove('open');
@@ -1569,6 +1629,7 @@
 
             if (page === 'tasks') loadTasks();
             if (page === 'submissions') loadSubmissions();
+            if (page === 'payouts') loadPayouts();
         }
 
         document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -1850,9 +1911,31 @@ function showPopup(message, isError) {
 
         async function loadStats() {
             try {
-                const res = await fetch('/api/stats');
-                const data = await res.json();
-                document.getElementById('onlineCount').textContent = data.onlineUsers || 0;
+                // Fetch stats
+                const statsRes = await fetch('/api/stats');
+                const stats = await statsRes.json();
+                document.getElementById('onlineCount').textContent = stats.onlineUsers || 0;
+
+                // Fetch payouts for total paid
+                const payoutsRes = await fetch('/api/payouts');
+                const payouts = await payoutsRes.json();
+                const totalPaid = payouts.stats?.totalPaidOut || 0;
+
+                // Fetch tasks count
+                const tasksRes = await fetch('/api/tasks');
+                const tasks = await tasksRes.json();
+                const activeTasks = (tasks.tasks || []).length;
+
+                // Update dashboard stats
+                const dashPaid = document.getElementById('dash-total-paid');
+                const dashTasks = document.getElementById('dash-active-tasks');
+                const dashUsers = document.getElementById('dash-total-users');
+                const dashDone = document.getElementById('dash-tasks-done');
+
+                if (dashPaid) dashPaid.textContent = '$' + totalPaid.toFixed(2);
+                if (dashTasks) dashTasks.textContent = activeTasks;
+                if (dashUsers) dashUsers.textContent = stats.totalUsers || 0;
+                if (dashDone) dashDone.textContent = stats.totalTasks || 0;
             } catch (err) {
                 console.error('Failed to load stats:', err);
             }
@@ -2151,6 +2234,144 @@ function showPopup(message, isError) {
         }
 
         // ============================================
+        // ============================================
+        // PAYOUTS
+        // ============================================
+
+        let payoutChart = null;
+
+        async function loadPayouts() {
+            try {
+                const res = await fetch('/api/payouts');
+                const data = await res.json();
+
+                // Update stats
+                const lifetimeEl = document.getElementById('lifetime-paid');
+                const dailyEl = document.getElementById('daily-paid');
+                const txEl = document.getElementById('total-tx');
+                const avgEl = document.getElementById('avg-payout');
+
+                const lifetime = data.stats?.totalPaidOut || 0;
+                const txCount = data.stats?.transactionCount || 0;
+                const avg = txCount > 0 ? lifetime / txCount : 0;
+
+                // Calculate 24h payouts
+                const now = Date.now();
+                const dayAgo = now - 24 * 60 * 60 * 1000;
+                const dailyPayouts = (data.transactions || [])
+                    .filter(tx => new Date(tx.timestamp).getTime() > dayAgo)
+                    .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+                if (lifetimeEl) lifetimeEl.textContent = '$' + lifetime.toFixed(2);
+                if (dailyEl) dailyEl.textContent = '$' + dailyPayouts.toFixed(2);
+                if (txEl) txEl.textContent = txCount;
+                if (avgEl) avgEl.textContent = '$' + avg.toFixed(2);
+
+                // Update chart
+                updatePayoutChart(data.transactions || []);
+
+                // Update feed
+                const feed = document.getElementById('payoutsFeed');
+                if (feed && data.transactions && data.transactions.length > 0) {
+                    feed.innerHTML = data.transactions.slice(0, 10).map(tx => `
+                        <div class="activity-item">
+                            <div class="activity-avatar" style="background:var(--green-dim);border:1px solid var(--green-border);display:flex;align-items:center;justify-content:center;color:var(--green);">$</div>
+                            <div class="activity-content">
+                                <div class="activity-text"><strong>+$${tx.amount.toFixed(2)} USDC</strong></div>
+                                <div class="activity-meta">${tx.recipient ? tx.recipient.substring(0,4) + '...' + tx.recipient.slice(-4) : 'Unknown'}</div>
+                            </div>
+                            <div class="activity-badge" style="background:var(--green-dim);color:var(--green);">${timeAgo(tx.timestamp)}</div>
+                        </div>
+                    `).join('');
+                } else if (feed) {
+                    feed.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">$</div>
+                            <div class="empty-state-text">No payouts yet</div>
+                            <div class="empty-state-sub">Completed task payouts will appear here</div>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Failed to load payouts:', err);
+            }
+        }
+
+        function updatePayoutChart(transactions) {
+            const ctx = document.getElementById('payoutChart');
+            if (!ctx) return;
+
+            // Group by day for last 14 days
+            const dailyData = {};
+            const now = new Date();
+            for (let i = 13; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                const key = date.toISOString().split('T')[0];
+                dailyData[key] = 0;
+            }
+
+            transactions.forEach(tx => {
+                const date = new Date(tx.timestamp).toISOString().split('T')[0];
+                if (dailyData[date] !== undefined) {
+                    dailyData[date] += tx.amount || 0;
+                }
+            });
+
+            const labels = Object.keys(dailyData).map(d => {
+                const date = new Date(d);
+                return (date.getMonth() + 1) + '/' + date.getDate();
+            });
+            const values = Object.values(dailyData);
+
+            if (payoutChart) payoutChart.destroy();
+
+            payoutChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: 'rgba(0, 255, 102, 0.6)',
+                        borderColor: '#00FF66',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#000',
+                            borderColor: '#00FF66',
+                            borderWidth: 1,
+                            titleColor: '#fff',
+                            bodyColor: '#00FF66',
+                            callbacks: {
+                                label: ctx => '$' + ctx.raw.toFixed(2) + ' USDC'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: { color: '#666', font: { size: 10 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: {
+                                color: '#666',
+                                font: { size: 10 },
+                                callback: v => '$' + v
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // ============================================
         // HELPERS
         // ============================================
