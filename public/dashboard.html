@@ -1590,22 +1590,6 @@
                         <div class="profile-handle">
                             Connect with X to get started
                         </div>
-                        <div class="badges">
-                            <span class="badge">FIRST TASK</span>
-                            <span class="badge">7-DAY STREAK</span>
-                            <span class="badge">10K EARNED</span>
-                            <span class="badge">CREATOR</span>
-                            <span class="badge">TOP 10</span>
-                            <span class="badge">DIAMOND</span>
-                        </div>
-                    </div>
-                    <div class="profile-rank">
-                        <div class="rank-label">earnr Rank</div>
-                        <div class="rank-name">UNRANKED</div>
-                        <div class="rank-progress">0 / 1,000 XP</div>
-                        <div class="rank-bar">
-                            <div class="rank-bar-fill" style="width:0%"></div>
-                        </div>
                     </div>
                 </div>
 
@@ -2046,7 +2030,6 @@ function showPopup(message, isError) {
                         <div class="user-name">${currentUser.display_name || currentUser.username}</div>
                         <div class="user-handle">@${currentUser.username}</div>
                     </div>
-                    <div class="user-rank">${currentUser.rank}</div>
                 `;
 
                 // Update mobile nav profile icon
@@ -2065,7 +2048,7 @@ function showPopup(message, isError) {
 
         function updateProfilePage() {
             if (!currentUser) return;
-            
+
             const profileHeader = document.querySelector('.profile-header');
             if (profileHeader) {
                 profileHeader.innerHTML = `
@@ -2077,30 +2060,9 @@ function showPopup(message, isError) {
                         <div class="profile-handle">
                             <a href="https://x.com/${currentUser.username}" target="_blank">@${currentUser.username}</a> — ${(currentUser.followers_count || 0).toLocaleString()} followers
                         </div>
-                        <div class="badges">
-                            ${currentUser.tasks_completed >= 1 ? '<span class="badge earned">FIRST TASK</span>' : '<span class="badge">FIRST TASK</span>'}
-                            ${currentUser.xp >= 700 ? '<span class="badge earned">7-DAY STREAK</span>' : '<span class="badge">7-DAY STREAK</span>'}
-                            ${currentUser.total_earned >= 10000 ? '<span class="badge earned">10K EARNED</span>' : '<span class="badge">10K EARNED</span>'}
-                            <span class="badge">CREATOR</span>
-                            <span class="badge">TOP 10</span>
-                            <span class="badge">DIAMOND</span>
-                        </div>
-                    </div>
-                    <div class="profile-rank">
-                        <div class="rank-label">earnr Rank</div>
-                        <div class="rank-name">${currentUser.rank}</div>
-                        <div class="rank-progress">${currentUser.xp || 0} / ${getNextRankXP(currentUser.rank)} XP</div>
-                        <div class="rank-bar">
-                            <div class="rank-bar-fill" style="width:${(currentUser.xp / getNextRankXP(currentUser.rank)) * 100}%"></div>
-                        </div>
                     </div>
                 `;
             }
-        }
-
-        function getNextRankXP(rank) {
-            const ranks = { BRONZE: 1000, SILVER: 2500, GOLD: 5000, PLATINUM: 10000, DIAMOND: 25000 };
-            return ranks[rank] || 1000;
         }
 
         function updateUserStats() {
