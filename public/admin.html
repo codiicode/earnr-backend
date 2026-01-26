@@ -390,6 +390,7 @@
             <button class="tab-btn" data-status="APPROVED" onclick="filterSubmissions('APPROVED', this)">Approved</button>
             <button class="tab-btn" data-status="REJECTED" onclick="filterSubmissions('REJECTED', this)">Rejected</button>
             <button class="tab-btn" data-status="ALL" onclick="filterSubmissions('ALL', this)">All</button>
+            <button class="tab-btn" style="margin-left:auto;background:#333;" onclick="runDiagnostic()">Run Diagnostic</button>
         </div>
 
         <div class="section-title">SUBMISSIONS</div>
@@ -402,6 +403,19 @@
         let adminKey = localStorage.getItem('earnr_admin_key') || '';
         let allSubmissions = [];
         let currentFilter = 'PENDING';
+
+        function showKeyWarning(keyRole) {
+            // Create warning banner at top of page
+            const banner = document.createElement('div');
+            banner.id = 'keyWarningBanner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ff4757;color:#fff;padding:1rem;text-align:center;z-index:9999;font-size:0.9rem;';
+            banner.innerHTML = `
+                <strong>WARNING: Wrong Supabase key!</strong> Current: ${keyRole} (need: service_role)<br>
+                <span style="font-size:0.8rem">Approvals will NOT persist. Fix: Supabase Dashboard → Settings → API → Copy service_role key → Vercel → Environment Variables → Update SUPABASE_SERVICE_KEY → Redeploy</span>
+                <button onclick="this.parentElement.remove()" style="margin-left:1rem;background:#fff;color:#ff4757;border:none;padding:0.25rem 0.5rem;cursor:pointer;">X</button>
+            `;
+            document.body.prepend(banner);
+        }
 
         // Check if already authenticated
         if (adminKey) {
@@ -443,6 +457,14 @@
                 document.getElementById('authPanel').classList.remove('active');
                 document.getElementById('mainPanel').classList.add('active');
                 document.getElementById('logoutBtn').style.display = 'block';
+
+                // Check for debug info and show warning if wrong key
+                if (data._debug) {
+                    console.log('Server debug:', data._debug);
+                    if (!data._debug.isServiceKey) {
+                        showKeyWarning(data._debug.keyRole);
+                    }
+                }
 
                 allSubmissions = data.submissions || [];
                 updateStats();
@@ -561,52 +583,184 @@
         async function approveSubmission(id) {
             if (!confirm('Approve this submission? The user will receive the reward.')) return;
 
+            const card = document.getElementById(`submission-${id}`);
+            if (card) card.style.opacity = '0.5';
+
             try {
+                console.log('Approving submission:', id);
                 const res = await fetch(`/api/admin/submissions/${id}/approve`, {
                     method: 'POST',
                     headers: { 'X-Admin-Key': adminKey }
                 });
 
                 const data = await res.json();
+                console.log('Approve response:', data);
+
                 if (data.error) {
-                    alert('Error: ' + data.error);
+                    let errorMsg = '=== APPROVAL ERROR ===\n\n';
+                    errorMsg += 'Error: ' + data.error + '\n';
+                    if (data.code) errorMsg += 'Code: ' + data.code + '\n';
+                    if (data.hint) errorMsg += '\nHint: ' + data.hint + '\n';
+                    if (data.verifications) {
+                        errorMsg += '\n--- Verifications ---\n';
+                        data.verifications.forEach(v => {
+                            errorMsg += `${v.delay} (${v.client}): ${v.status}\n`;
+                        });
+                    }
+                    if (data.currentStatus) errorMsg += '\nCurrent status in DB: ' + data.currentStatus;
+                    alert(errorMsg);
+                    if (card) card.style.opacity = '1';
                     return;
                 }
 
-                // Update local data
-                const sub = allSubmissions.find(s => s.id === id);
-                if (sub) sub.status = 'APPROVED';
-                updateStats();
-                renderSubmissions();
+                // Check for success
+                if (data.success) {
+                    let successMsg = 'Submission approved!\n\n';
+                    successMsg += 'Code Version: ' + (data.debug?.codeVersion || 'unknown') + '\n';
+                    successMsg += 'Key Role: ' + (data.debug?.keyRole || 'unknown') + '\n';
+
+                    if (data.debug?.verifications) {
+                        successMsg += '\n--- Verifications ---\n';
+                        data.debug.verifications.forEach(v => {
+                            successMsg += `${v.delay} (${v.client}): ${v.status}\n`;
+                        });
+                    }
+
+                    // Wait 1 second then reload and verify
+                    await new Promise(r => setTimeout(r, 1000));
+                    await reloadSubmissions();
+
+                    const updated = allSubmissions.find(s => s.id === id);
+                    if (updated && updated.status !== 'APPROVED') {
+                        successMsg += '\n\n!!! WARNING !!!\nAfter reload, status is: ' + updated.status;
+                        successMsg += '\nThis indicates a BACKGROUND PROCESS is resetting the status!';
+                        successMsg += '\n\nCheck Supabase Dashboard for:';
+                        successMsg += '\n- Database triggers on submissions table';
+                        successMsg += '\n- Edge functions processing submissions';
+                        successMsg += '\n- Webhooks on submissions table';
+                    } else {
+                        successMsg += '\n\nReload confirmed: APPROVED';
+                    }
+
+                    alert(successMsg);
+                } else {
+                    alert('Unexpected response: ' + JSON.stringify(data));
+                    if (card) card.style.opacity = '1';
+                }
 
             } catch (err) {
-                alert('Failed to approve submission');
+                console.error('Approve error:', err);
+                alert('Failed to approve: ' + err.message);
+                if (card) card.style.opacity = '1';
             }
         }
 
         async function rejectSubmission(id) {
             if (!confirm('Reject this submission?')) return;
 
+            const card = document.getElementById(`submission-${id}`);
+            if (card) card.style.opacity = '0.5';
+
             try {
+                console.log('Rejecting submission:', id);
                 const res = await fetch(`/api/admin/submissions/${id}/reject`, {
                     method: 'POST',
                     headers: { 'X-Admin-Key': adminKey }
                 });
 
                 const data = await res.json();
+                console.log('Reject response:', data);
+
                 if (data.error) {
                     alert('Error: ' + data.error);
+                    if (card) card.style.opacity = '1';
                     return;
                 }
 
-                // Update local data
-                const sub = allSubmissions.find(s => s.id === id);
-                if (sub) sub.status = 'REJECTED';
-                updateStats();
-                renderSubmissions();
+                await reloadSubmissions();
+
+                const updated = allSubmissions.find(s => s.id === id);
+                if (updated && updated.status !== 'REJECTED') {
+                    alert('ERROR: Rejection did not persist!\nDatabase still shows: ' + updated.status);
+                } else {
+                    alert('Submission rejected successfully!');
+                }
 
             } catch (err) {
-                alert('Failed to reject submission');
+                console.error('Reject error:', err);
+                alert('Failed to reject: ' + err.message);
+                if (card) card.style.opacity = '1';
+            }
+        }
+
+        async function reloadSubmissions() {
+            try {
+                console.log('Reloading submissions from server...');
+                const res = await fetch('/api/admin/submissions', {
+                    headers: { 'X-Admin-Key': adminKey }
+                });
+                const data = await res.json();
+                console.log('Loaded submissions:', data.submissions?.length || 0);
+                if (data._debug) {
+                    console.log('Server debug:', data._debug);
+                }
+                if (data.submissions) {
+                    allSubmissions = data.submissions;
+                    updateStats();
+                    renderSubmissions();
+                }
+            } catch (err) {
+                console.error('Failed to reload submissions:', err);
+            }
+        }
+
+        async function runDiagnostic() {
+            alert('Running database persistence diagnostic...\n\nThis will test if updates persist by updating a pending submission and checking multiple times.');
+
+            try {
+                // First check debug info
+                const debugRes = await fetch('/api/admin/debug', {
+                    headers: { 'X-Admin-Key': adminKey }
+                });
+                const debugData = await debugRes.json();
+                console.log('Debug info:', debugData);
+
+                // Run the test-update
+                const testRes = await fetch('/api/admin/test-update', {
+                    method: 'POST',
+                    headers: { 'X-Admin-Key': adminKey }
+                });
+                const testData = await testRes.json();
+                console.log('Test result:', testData);
+
+                let msg = '=== DIAGNOSTIC RESULTS ===\n\n';
+                msg += 'Code Version: ' + (debugData.codeVersion || 'unknown') + '\n';
+                msg += 'Key Role: ' + debugData.keyRole + '\n';
+                msg += 'Supabase URL: ' + debugData.supabaseUrl + '\n\n';
+
+                if (testData.error && !testData.steps) {
+                    msg += 'Error: ' + testData.error + '\n';
+                    if (testData.hint) msg += 'Hint: ' + testData.hint + '\n';
+                } else if (testData.steps) {
+                    msg += '--- Test Steps ---\n';
+                    testData.steps.forEach(step => {
+                        msg += `Step ${step.step}: ${step.action}\n`;
+                        if (step.status) msg += `  Status: ${step.status}\n`;
+                        if (step.returned) msg += `  Returned: ${step.returned}\n`;
+                        if (step.error) msg += `  ERROR: ${step.error}\n`;
+                    });
+                    msg += '\n';
+                    msg += testData.success ? 'RESULT: SUCCESS - Updates persist!' : 'RESULT: FAILED - Updates are being reverted!';
+                    if (testData.hint) msg += '\n\n' + testData.hint;
+                }
+
+                alert(msg);
+
+                // Reload to see current state
+                await reloadSubmissions();
+
+            } catch (err) {
+                alert('Diagnostic failed: ' + err.message);
             }
         }
     </script>

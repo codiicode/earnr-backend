@@ -3,7 +3,35 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+// IMPORTANT: Must use service_role key (not anon key) to bypass RLS
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const CODE_VERSION = 'v6-DIRECT-2026-01-26';
+
+// Decode JWT to check if it's service_role or anon key
+function getKeyRole(jwt) {
+  try {
+    if (!jwt) return 'missing';
+    const parts = jwt.split('.');
+    if (parts.length !== 3) return 'invalid_format';
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    return payload.role || 'unknown';
+  } catch (e) {
+    return 'decode_error';
+  }
+}
+
+const KEY_ROLE = getKeyRole(SUPABASE_KEY);
+const IS_SERVICE_KEY = KEY_ROLE === 'service_role';
+
+// Log warning if using wrong key type
+console.log('Supabase key role:', KEY_ROLE, IS_SERVICE_KEY ? '(GOOD)' : '(WARNING: Should be service_role!)');
+
+const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 const BASE_URL = String(process.env.BASE_URL || 'https://earnr.xyz').trim();
 const X_CLIENT_ID = String(process.env.X_CLIENT_ID || '').trim();
 const X_CLIENT_SECRET = String(process.env.X_CLIENT_SECRET || '').trim();
@@ -83,7 +111,22 @@ module.exports = async function(req, res) {
     if (p === '/auth/logout') { res.setHeader('Set-Cookie', 'session=; Max-Age=0; Path=/'); res.writeHead(302, { 'Location': '/' }); return res.end(); }
     if (p === '/api/me') { return res.status(200).json({user: await getUser()}); }
     if (p.startsWith('/api/user/')) { var userId = p.split('/')[3]; var r = await supabase.from('users').select('*').eq('id', userId).single(); return res.status(200).json({user: r.data || null}); }
-    if (p === '/api/stats') { var r = await supabase.from('users').select('*', {count: 'exact', head: true}); var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString(); var online = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo); return res.status(200).json({totalUsers: r.count || 0, onlineUsers: online.count || 0, totalPaidOut: 0, totalTasks: 0}); }
+    if (p === '/api/stats') {
+      var usersRes = await supabase.from('users').select('*', {count: 'exact', head: true});
+      var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString();
+      var onlineRes = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo);
+      var tasksRes = await supabase.from('tasks').select('*', {count: 'exact', head: true}).eq('is_active', true);
+      var approvedRes = await supabase.from('submissions').select('reward').eq('status', 'APPROVED');
+      var totalPaid = (approvedRes.data || []).reduce((sum, s) => sum + (s.reward || 0), 0);
+      var completedCount = (approvedRes.data || []).length;
+      return res.status(200).json({
+        totalUsers: usersRes.count || 0,
+        onlineUsers: onlineRes.count || 0,
+        totalPaidOut: totalPaid,
+        totalTasks: tasksRes.count || 0,
+        completedTasks: completedCount
+      });
+    }
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
     if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true); return res.status(200).json({tasks: r.data || []}); }
     if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }
@@ -98,121 +141,60 @@ module.exports = async function(req, res) {
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
     if (p === '/api/wallet' && req.method === 'POST') { var u = await getUser(); if(!u) return res.status(401).json({error: 'Not logged in'}); var body = ''; for await (var chunk of req) { body += chunk; } var data = JSON.parse(body); await supabase.from('users').update({wallet_address: String(data.wallet || '').trim()}).eq('id', u.id); return res.status(200).json({success: true}); }
 
-    // Payouts API - Fetch live Solana transactions from payout wallet
+    // Payouts API - Fetch approved submissions from database
     if (p === '/api/payouts') {
-      var PAYOUT_WALLET = String(process.env.PAYOUT_WALLET_ADDRESS || '').trim();
-      if (!PAYOUT_WALLET) {
-        // Return demo data when wallet not configured
-        return res.status(200).json({
-          transactions: [
-            { amount: 5, recipient: 'Demo...User', timestamp: new Date().toISOString(), signature: 'demo' }
-          ],
-          stats: { balance: 0, totalPaidOut: 5, transactionCount: 1 }
-        });
-      }
-
       try {
-        // Fetch recent transactions using Solana public RPC
-        var txResponse = await fetch('https://api.mainnet-beta.solana.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getSignaturesForAddress',
-            params: [PAYOUT_WALLET, { limit: 50 }]
-          })
-        });
-        var txData = await txResponse.json();
-        var signatures = txData.result || [];
+        // Get all approved submissions with user and task info
+        var approvedRes = await supabase
+          .from('submissions')
+          .select('*, users(*), tasks(*)')
+          .eq('status', 'APPROVED')
+          .order('approved_at', {ascending: false});
 
-        // Fetch USDC token account balance
-        var USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-        var balanceResponse = await fetch('https://api.mainnet-beta.solana.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getTokenAccountsByOwner',
-            params: [PAYOUT_WALLET, { mint: USDC_MINT }, { encoding: 'jsonParsed' }]
-          })
-        });
-        var balanceData = await balanceResponse.json();
-        var usdcBalance = 0;
-        if (balanceData.result && balanceData.result.value && balanceData.result.value.length > 0) {
-          var tokenInfo = balanceData.result.value[0].account.data.parsed.info;
-          usdcBalance = tokenInfo.tokenAmount.uiAmount || 0;
-        }
+        var submissions = approvedRes.data || [];
 
-        // Get transaction details for each signature (limited to last 20 for performance)
-        var transactions = [];
+        // Calculate totals
         var totalPaidOut = 0;
+        var last24hPaid = 0;
+        var now = Date.now();
+        var dayAgo = now - 24 * 60 * 60 * 1000;
 
-        for (var i = 0; i < Math.min(signatures.length, 20); i++) {
-          var sig = signatures[i];
-          try {
-            var txDetailRes = await fetch('https://api.mainnet-beta.solana.com', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTransaction',
-                params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
-              })
-            });
-            var txDetail = await txDetailRes.json();
+        var transactions = [];
+        for (var i = 0; i < submissions.length; i++) {
+          var sub = submissions[i];
+          var reward = sub.tasks?.reward || 0;
+          var approvedAt = sub.approved_at ? new Date(sub.approved_at).getTime() : now;
 
-            if (txDetail.result) {
-              var meta = txDetail.result.meta;
-              var blockTime = txDetail.result.blockTime;
-              var instructions = txDetail.result.transaction.message.instructions || [];
-
-              // Look for token transfers (USDC payouts)
-              var preBalances = meta.preTokenBalances || [];
-              var postBalances = meta.postTokenBalances || [];
-
-              for (var j = 0; j < postBalances.length; j++) {
-                var post = postBalances[j];
-                if (post.mint === USDC_MINT && post.owner !== PAYOUT_WALLET) {
-                  var pre = preBalances.find(function(p) { return p.accountIndex === post.accountIndex; });
-                  var preAmount = pre ? pre.uiTokenAmount.uiAmount : 0;
-                  var postAmount = post.uiTokenAmount.uiAmount || 0;
-                  var diff = postAmount - preAmount;
-
-                  if (diff > 0) {
-                    transactions.push({
-                      signature: sig.signature,
-                      recipient: post.owner,
-                      amount: diff,
-                      timestamp: blockTime * 1000,
-                      slot: sig.slot
-                    });
-                    totalPaidOut += diff;
-                  }
-                }
-              }
-            }
-          } catch (txErr) {
-            // Skip failed transaction fetches
+          totalPaidOut += reward;
+          if (approvedAt > dayAgo) {
+            last24hPaid += reward;
           }
+
+          transactions.push({
+            id: sub.id,
+            username: sub.users?.username || 'Unknown',
+            avatar_url: sub.users?.avatar_url || '',
+            wallet: sub.users?.wallet_address || '',
+            amount: reward,
+            task_title: sub.tasks?.title || 'Task',
+            timestamp: sub.approved_at || sub.created_at,
+            status: 'completed'
+          });
         }
 
         return res.status(200).json({
           transactions: transactions,
           stats: {
-            balance: usdcBalance,
             totalPaidOut: totalPaidOut,
-            transactionCount: transactions.length,
-            walletAddress: PAYOUT_WALLET
+            last24hPaid: last24hPaid,
+            transactionCount: transactions.length
           }
         });
       } catch (err) {
         console.error('Payouts API error:', err);
         return res.status(200).json({
           transactions: [],
-          stats: { balance: 0, totalPaidOut: 0, transactionCount: 0 },
+          stats: { totalPaidOut: 0, last24hPaid: 0, transactionCount: 0 },
           error: err.message
         });
       }
@@ -263,49 +245,288 @@ module.exports = async function(req, res) {
       if (!validAdminKey) return res.status(500).json({error: 'ADMIN_KEY not configured on server'});
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var r = await supabase.from('submissions').select('*, users(*), tasks(*)').order('created_at', {ascending: false});
-      return res.status(200).json({submissions: r.data || []});
+      return res.status(200).json({
+        submissions: r.data || [],
+        _debug: {
+          codeVersion: CODE_VERSION,
+          keyRole: KEY_ROLE,
+          isServiceKey: IS_SERVICE_KEY
+        }
+      });
+    }
+
+    // Debug endpoint to check database connection and key type
+    if (p === '/api/admin/debug' && req.method === 'GET') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var testResult = await supabase.from('submissions').select('id, status').limit(1);
+      return res.status(200).json({
+        codeVersion: CODE_VERSION,
+        keyRole: KEY_ROLE,
+        isServiceKey: IS_SERVICE_KEY,
+        keyPrefix: SUPABASE_KEY.substring(0, 20) + '...',
+        keyLength: SUPABASE_KEY.length,
+        supabaseUrl: (process.env.SUPABASE_URL || '').substring(0, 40) + '...',
+        problem: !IS_SERVICE_KEY ? 'WRONG KEY! You are using the anon key. Updates will NOT persist.' : 'None detected',
+        testQuery: testResult.error ? testResult.error.message : 'OK',
+        testData: testResult.data
+      });
+    }
+
+    // DIAGNOSTIC: Test if database updates persist
+    if (p === '/api/admin/test-update' && req.method === 'POST') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+
+      console.log('TEST-UPDATE: Starting persistence test...');
+      var results = { steps: [], success: false };
+
+      try {
+        // Get a random pending submission for testing (we won't actually change it)
+        var pending = await supabase.from('submissions').select('id, status').eq('status', 'PENDING').limit(1).single();
+
+        if (!pending.data) {
+          return res.status(200).json({
+            error: 'No pending submissions to test with',
+            hint: 'Create a test submission first'
+          });
+        }
+
+        var testId = pending.data.id;
+        results.testSubmissionId = testId;
+        results.steps.push({ step: 1, action: 'Found pending submission', id: testId, status: pending.data.status });
+
+        // Step 2: Update to a TEST status (we'll use 'TEST_STATUS')
+        var update1 = await supabase
+          .from('submissions')
+          .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+          .eq('id', testId)
+          .select('status');
+
+        results.steps.push({
+          step: 2,
+          action: 'Update to APPROVED',
+          returned: update1.data?.[0]?.status,
+          error: update1.error?.message || null,
+          rowCount: update1.data?.length || 0
+        });
+
+        // Step 3: Immediately read back
+        var read1 = await supabase.from('submissions').select('status').eq('id', testId).single();
+        results.steps.push({
+          step: 3,
+          action: 'Immediate read',
+          status: read1.data?.status
+        });
+
+        // Step 4: Wait 500ms and read again with new client
+        await new Promise(r => setTimeout(r, 500));
+        var newClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false }
+        });
+        var read2 = await newClient.from('submissions').select('status').eq('id', testId).single();
+        results.steps.push({
+          step: 4,
+          action: 'Read after 500ms (new client)',
+          status: read2.data?.status
+        });
+
+        // Step 5: Wait another 500ms and read with yet another client
+        await new Promise(r => setTimeout(r, 500));
+        var client3 = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false }
+        });
+        var read3 = await client3.from('submissions').select('status').eq('id', testId).single();
+        results.steps.push({
+          step: 5,
+          action: 'Read after 1000ms (third client)',
+          status: read3.data?.status
+        });
+
+        // Check if all reads show APPROVED
+        if (read1.data?.status === 'APPROVED' && read2.data?.status === 'APPROVED' && read3.data?.status === 'APPROVED') {
+          results.success = true;
+          results.message = 'SUCCESS! Update persisted through all verifications.';
+        } else {
+          results.success = false;
+          results.message = 'FAILED! Status reverted at some point. Check steps for details.';
+          results.hint = 'This confirms there is a database trigger or policy reverting updates.';
+        }
+
+        return res.status(200).json(results);
+
+      } catch (err) {
+        results.error = err.message;
+        return res.status(500).json(results);
+      }
     }
 
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/approve$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+
       var subId = p.split('/')[4];
+      console.log('APPROVE v6: Starting for ID:', subId);
+      console.log('APPROVE v6: Key role:', KEY_ROLE);
 
-      // Get submission with task info
-      var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
-      if (!sub.data) return res.status(404).json({error: 'Submission not found'});
-      if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
+      // Step 1: Get current submission
+      var sub = await supabase.from('submissions').select('*, tasks(*), users(*)').eq('id', subId).single();
+      console.log('APPROVE v6: Fetch result:', JSON.stringify({data: sub.data?.status, error: sub.error}));
 
-      // Update submission status
-      await supabase.from('submissions').update({status: 'APPROVED', approved_at: new Date().toISOString()}).eq('id', subId);
+      if (sub.error) {
+        return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message, step: 'fetch'});
+      }
+      if (!sub.data) {
+        return res.status(404).json({error: 'Submission not found', step: 'fetch'});
+      }
 
-      // Update user stats
+      var currentStatus = sub.data.status;
       var reward = sub.data.tasks?.reward || 0;
-      await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
+      console.log('APPROVE v6: Current status:', currentStatus, 'Reward:', reward);
 
-      // Add activity
-      var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
-      await supabase.from('activity').insert({
-        user_id: sub.data.user_id,
-        username: userInfo.data?.username,
-        avatar_url: userInfo.data?.avatar_url,
-        type: 'TASK_COMPLETED',
-        task_name: sub.data.tasks?.title,
-        amount: reward
+      if (currentStatus !== 'PENDING') {
+        return res.status(400).json({error: 'Already processed', currentStatus: currentStatus});
+      }
+
+      // Step 2: Do the UPDATE - simple and direct
+      console.log('APPROVE v6: Executing UPDATE...');
+      var updateResult = await supabase
+        .from('submissions')
+        .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+        .eq('id', subId)
+        .select();
+
+      console.log('APPROVE v6: Update result:', JSON.stringify(updateResult));
+
+      if (updateResult.error) {
+        return res.status(500).json({
+          error: 'UPDATE failed: ' + updateResult.error.message,
+          step: 'update',
+          details: updateResult.error
+        });
+      }
+
+      // Check if update returned any rows
+      if (!updateResult.data || updateResult.data.length === 0) {
+        return res.status(500).json({
+          error: 'UPDATE returned no rows - the row was not updated',
+          step: 'update',
+          hint: 'This usually means RLS is blocking the update. Make sure you are using the service_role key.',
+          keyRole: KEY_ROLE
+        });
+      }
+
+      var updatedStatus = updateResult.data[0].status;
+      console.log('APPROVE v6: Update returned status:', updatedStatus);
+
+      if (updatedStatus !== 'APPROVED') {
+        return res.status(500).json({
+          error: 'UPDATE did not change status to APPROVED',
+          step: 'update',
+          returnedStatus: updatedStatus
+        });
+      }
+
+      // Step 3: Verify with a fresh read
+      console.log('APPROVE v6: Verifying with fresh read...');
+      var verifyResult = await supabase.from('submissions').select('status').eq('id', subId).single();
+      console.log('APPROVE v6: Verify result:', JSON.stringify(verifyResult));
+
+      if (verifyResult.data?.status !== 'APPROVED') {
+        return res.status(500).json({
+          error: 'CRITICAL: Status reverted immediately! Update showed ' + updatedStatus + ' but read shows ' + verifyResult.data?.status,
+          step: 'verify',
+          hint: 'There may be a database trigger reverting the status'
+        });
+      }
+
+      // Step 4: Update user stats (non-critical)
+      try {
+        await supabase.from('users').update({
+          total_earned: (sub.data.users?.total_earned || 0) + reward,
+          completed_tasks: (sub.data.users?.completed_tasks || 0) + 1
+        }).eq('id', sub.data.user_id);
+      } catch (e) {
+        console.log('APPROVE v6: User stats update failed:', e.message);
+      }
+
+      // Step 5: Add activity (non-critical)
+      try {
+        await supabase.from('activity').insert({
+          user_id: sub.data.user_id,
+          username: sub.data.users?.username,
+          avatar_url: sub.data.users?.avatar_url,
+          type: 'TASK_COMPLETED',
+          task_name: sub.data.tasks?.title,
+          amount: reward
+        });
+      } catch (e) {
+        console.log('APPROVE v6: Activity insert failed:', e.message);
+      }
+
+      console.log('APPROVE v6: SUCCESS!');
+      return res.status(200).json({
+        success: true,
+        message: 'Submission approved successfully',
+        submission: { id: subId, status: 'APPROVED' },
+        debug: {
+          version: 'v6-DIRECT',
+          keyRole: KEY_ROLE,
+          updateReturnedStatus: updatedStatus,
+          verifyStatus: verifyResult.data?.status,
+          reward: reward
+        }
       });
-
-      return res.status(200).json({success: true});
     }
 
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/reject$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+
+      // Check if using service_role key
+      if (!IS_SERVICE_KEY) {
+        console.error('REJECT: WRONG KEY TYPE! Using:', KEY_ROLE, 'but need service_role');
+        return res.status(500).json({
+          error: 'Database updates are blocked because you are using the WRONG Supabase key!',
+          currentKeyRole: KEY_ROLE,
+          requiredKeyRole: 'service_role',
+          fix: 'Go to Supabase Dashboard > Settings > API > Copy the "service_role" secret key > Go to Vercel > Settings > Environment Variables > Update SUPABASE_SERVICE_KEY with the new key > Redeploy'
+        });
+      }
+
       var subId = p.split('/')[4];
+      console.log('REJECT: Starting rejection for submission ID:', subId);
 
       var sub = await supabase.from('submissions').select('*').eq('id', subId).single();
+      if (sub.error) {
+        console.error('REJECT: Error fetching submission:', sub.error);
+        return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message});
+      }
       if (!sub.data) return res.status(404).json({error: 'Submission not found'});
-      if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
+      console.log('REJECT: Current status:', sub.data.status);
+      if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed, current status: ' + sub.data.status});
 
-      await supabase.from('submissions').update({status: 'REJECTED', rejected_at: new Date().toISOString()}).eq('id', subId);
-      return res.status(200).json({success: true});
+      var updateResult = await supabase
+        .from('submissions')
+        .update({status: 'REJECTED', rejected_at: new Date().toISOString()})
+        .eq('id', subId);
+
+      console.log('REJECT: Update result:', JSON.stringify(updateResult));
+
+      if (updateResult.error) {
+        console.error('REJECT: Update error:', updateResult.error);
+        return res.status(500).json({error: 'Failed to reject: ' + updateResult.error.message});
+      }
+
+      // Verify the update
+      var verifyResult = await supabase.from('submissions').select('*').eq('id', subId).single();
+      console.log('REJECT: Verification result:', JSON.stringify(verifyResult));
+
+      if (verifyResult.data?.status !== 'REJECTED') {
+        console.error('REJECT: Status did not change! Still:', verifyResult.data?.status);
+        return res.status(500).json({
+          error: 'Update did not persist. Status is still: ' + verifyResult.data?.status
+        });
+      }
+
+      console.log('REJECT: SUCCESS - Status verified as REJECTED');
+      return res.status(200).json({success: true, submission: verifyResult.data});
     }
 
     // Serve admin page
