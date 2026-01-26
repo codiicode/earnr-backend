@@ -637,25 +637,6 @@
 
         <!-- Tasks View -->
         <div id="tasksView" class="hidden">
-            <div class="stats-row">
-                <div class="stat-card">
-                    <div class="stat-value" id="statActiveTasks">0</div>
-                    <div class="stat-label">ACTIVE TASKS</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statInactiveTasks">0</div>
-                    <div class="stat-label">INACTIVE</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statTotalSlots">0</div>
-                    <div class="stat-label">TOTAL SLOTS</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statTotalRewards">0</div>
-                    <div class="stat-label">TOTAL REWARDS</div>
-                </div>
-            </div>
-
             <!-- Task Form -->
             <div class="task-form" id="taskForm">
                 <h3>
@@ -1128,23 +1109,10 @@
                 }
 
                 allTasks = data.tasks || [];
-                updateTaskStats();
                 renderTasks();
             } catch (err) {
                 console.error('Failed to load tasks:', err);
             }
-        }
-
-        function updateTaskStats() {
-            const active = allTasks.filter(t => t.is_active).length;
-            const inactive = allTasks.filter(t => !t.is_active).length;
-            const totalSlots = allTasks.reduce((sum, t) => sum + (t.slots_total || 0), 0);
-            const totalRewards = allTasks.reduce((sum, t) => sum + (t.reward || 0), 0);
-
-            document.getElementById('statActiveTasks').textContent = active;
-            document.getElementById('statInactiveTasks').textContent = inactive;
-            document.getElementById('statTotalSlots').textContent = totalSlots.toLocaleString();
-            document.getElementById('statTotalRewards').textContent = totalRewards.toLocaleString();
         }
 
         function filterTasks(filter, btn) {
