@@ -893,40 +893,61 @@
         }
 
         // Fetch live stats
+        let currentStats = { totalUsers: 0, totalPaidOut: 0, totalTasks: 0 };
+        let isFirstLoad = true;
+
         async function loadStats() {
             try {
                 const res = await fetch('/api/stats');
                 const data = await res.json();
-                animateCounter('totalEarnrs', data.totalUsers || 0);
-                animateCounter('totalPaid', data.totalPaidOut || 0);
-                animateCounter('totalTasks', data.totalTasks || 0);
+
+                if (isFirstLoad) {
+                    animateCounter('totalEarnrs', 0, data.totalUsers || 0);
+                    animateCounter('totalPaid', 0, data.totalPaidOut || 0);
+                    animateCounter('totalTasks', 0, data.totalTasks || 0);
+                    isFirstLoad = false;
+                } else {
+                    // Smooth update from current value
+                    animateCounter('totalEarnrs', currentStats.totalUsers, data.totalUsers || 0);
+                    animateCounter('totalPaid', currentStats.totalPaidOut, data.totalPaidOut || 0);
+                    animateCounter('totalTasks', currentStats.totalTasks, data.totalTasks || 0);
+                }
+
+                currentStats = {
+                    totalUsers: data.totalUsers || 0,
+                    totalPaidOut: data.totalPaidOut || 0,
+                    totalTasks: data.totalTasks || 0
+                };
             } catch (err) {
                 console.log('Stats not available');
             }
         }
 
-        function animateCounter(id, target) {
+        function animateCounter(id, start, target) {
             const el = document.getElementById(id);
+            if (start === target) return;
+
             const duration = 1500;
-            const start = 0;
             const startTime = performance.now();
-            
+
             function update(currentTime) {
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
                 const eased = 1 - Math.pow(1 - progress, 3);
                 const current = Math.floor(start + (target - start) * eased);
                 el.textContent = current.toLocaleString();
-                
+
                 if (progress < 1) {
                     requestAnimationFrame(update);
                 }
             }
-            
+
             requestAnimationFrame(update);
         }
 
         loadStats();
+        // Refresh stats every 30 seconds
+        setInterval(loadStats, 30000);
     </script>
 </body>
 </html>

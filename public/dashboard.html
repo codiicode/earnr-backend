@@ -1936,7 +1936,7 @@ function showPopup(message, isError) {
                 if (dashPaid) dashPaid.textContent = '$' + totalPaid.toFixed(2);
                 if (dashTasks) dashTasks.textContent = activeTasks;
                 if (dashUsers) dashUsers.textContent = stats.totalUsers || 0;
-                if (dashDone) dashDone.textContent = stats.totalTasks || 0;
+                if (dashDone) dashDone.textContent = stats.completedTasks || 0;
             } catch (err) {
                 console.error('Failed to load stats:', err);
             }
@@ -2276,10 +2276,12 @@ function showPopup(message, isError) {
                 if (feed && data.transactions && data.transactions.length > 0) {
                     feed.innerHTML = data.transactions.slice(0, 10).map(tx => `
                         <div class="activity-item">
-                            <div class="activity-avatar" style="background:var(--green-dim);border:1px solid var(--green-border);display:flex;align-items:center;justify-content:center;color:var(--green);">$</div>
+                            <div class="activity-avatar" style="${tx.avatar_url ? 'background-image:url(' + tx.avatar_url + ');background-size:cover;' : 'background:var(--green-dim);border:1px solid var(--green-border);display:flex;align-items:center;justify-content:center;color:var(--green);'}">
+                                ${tx.avatar_url ? '' : '$'}
+                            </div>
                             <div class="activity-content">
-                                <div class="activity-text"><strong>+$${tx.amount.toFixed(2)} USDC</strong></div>
-                                <div class="activity-meta">${tx.recipient ? tx.recipient.substring(0,4) + '...' + tx.recipient.slice(-4) : 'Unknown'}</div>
+                                <div class="activity-text"><strong>@${tx.username || 'Unknown'}</strong> earned <strong style="color:var(--green)">$${tx.amount.toFixed(2)} USDC</strong></div>
+                                <div class="activity-meta">${tx.task_title || 'Task completed'}</div>
                             </div>
                             <div class="activity-badge" style="background:var(--green-dim);color:var(--green);">${timeAgo(tx.timestamp)}</div>
                         </div>
@@ -2402,6 +2404,11 @@ function showPopup(message, isError) {
                     await fetch('/api/heartbeat', { method: 'POST', credentials: 'include' });
                 }
                 loadStats();
+                // Refresh payouts if on that page
+                const payoutsPage = document.getElementById('payouts');
+                if (payoutsPage && payoutsPage.classList.contains('active')) {
+                    loadPayouts();
+                }
             }, 30000);
         }
 

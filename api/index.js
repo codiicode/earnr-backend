@@ -83,7 +83,22 @@ module.exports = async function(req, res) {
     if (p === '/auth/logout') { res.setHeader('Set-Cookie', 'session=; Max-Age=0; Path=/'); res.writeHead(302, { 'Location': '/' }); return res.end(); }
     if (p === '/api/me') { return res.status(200).json({user: await getUser()}); }
     if (p.startsWith('/api/user/')) { var userId = p.split('/')[3]; var r = await supabase.from('users').select('*').eq('id', userId).single(); return res.status(200).json({user: r.data || null}); }
-    if (p === '/api/stats') { var r = await supabase.from('users').select('*', {count: 'exact', head: true}); var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString(); var online = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo); return res.status(200).json({totalUsers: r.count || 0, onlineUsers: online.count || 0, totalPaidOut: 0, totalTasks: 0}); }
+    if (p === '/api/stats') {
+      var usersRes = await supabase.from('users').select('*', {count: 'exact', head: true});
+      var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString();
+      var onlineRes = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo);
+      var tasksRes = await supabase.from('tasks').select('*', {count: 'exact', head: true}).eq('is_active', true);
+      var approvedRes = await supabase.from('submissions').select('reward').eq('status', 'approved');
+      var totalPaid = (approvedRes.data || []).reduce((sum, s) => sum + (s.reward || 0), 0);
+      var completedCount = (approvedRes.data || []).length;
+      return res.status(200).json({
+        totalUsers: usersRes.count || 0,
+        onlineUsers: onlineRes.count || 0,
+        totalPaidOut: totalPaid,
+        totalTasks: tasksRes.count || 0,
+        completedTasks: completedCount
+      });
+    }
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
     if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true); return res.status(200).json({tasks: r.data || []}); }
     if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }
@@ -98,121 +113,60 @@ module.exports = async function(req, res) {
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
     if (p === '/api/wallet' && req.method === 'POST') { var u = await getUser(); if(!u) return res.status(401).json({error: 'Not logged in'}); var body = ''; for await (var chunk of req) { body += chunk; } var data = JSON.parse(body); await supabase.from('users').update({wallet_address: String(data.wallet || '').trim()}).eq('id', u.id); return res.status(200).json({success: true}); }
 
-    // Payouts API - Fetch live Solana transactions from payout wallet
+    // Payouts API - Fetch approved submissions from database
     if (p === '/api/payouts') {
-      var PAYOUT_WALLET = String(process.env.PAYOUT_WALLET_ADDRESS || '').trim();
-      if (!PAYOUT_WALLET) {
-        // Return demo data when wallet not configured
-        return res.status(200).json({
-          transactions: [
-            { amount: 5, recipient: 'Demo...User', timestamp: new Date().toISOString(), signature: 'demo' }
-          ],
-          stats: { balance: 0, totalPaidOut: 5, transactionCount: 1 }
-        });
-      }
-
       try {
-        // Fetch recent transactions using Solana public RPC
-        var txResponse = await fetch('https://api.mainnet-beta.solana.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getSignaturesForAddress',
-            params: [PAYOUT_WALLET, { limit: 50 }]
-          })
-        });
-        var txData = await txResponse.json();
-        var signatures = txData.result || [];
+        // Get all approved submissions with user and task info
+        var approvedRes = await supabase
+          .from('submissions')
+          .select('*, users(*), tasks(*)')
+          .eq('status', 'approved')
+          .order('approved_at', {ascending: false});
 
-        // Fetch USDC token account balance
-        var USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-        var balanceResponse = await fetch('https://api.mainnet-beta.solana.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getTokenAccountsByOwner',
-            params: [PAYOUT_WALLET, { mint: USDC_MINT }, { encoding: 'jsonParsed' }]
-          })
-        });
-        var balanceData = await balanceResponse.json();
-        var usdcBalance = 0;
-        if (balanceData.result && balanceData.result.value && balanceData.result.value.length > 0) {
-          var tokenInfo = balanceData.result.value[0].account.data.parsed.info;
-          usdcBalance = tokenInfo.tokenAmount.uiAmount || 0;
-        }
+        var submissions = approvedRes.data || [];
 
-        // Get transaction details for each signature (limited to last 20 for performance)
-        var transactions = [];
+        // Calculate totals
         var totalPaidOut = 0;
+        var last24hPaid = 0;
+        var now = Date.now();
+        var dayAgo = now - 24 * 60 * 60 * 1000;
 
-        for (var i = 0; i < Math.min(signatures.length, 20); i++) {
-          var sig = signatures[i];
-          try {
-            var txDetailRes = await fetch('https://api.mainnet-beta.solana.com', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTransaction',
-                params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
-              })
-            });
-            var txDetail = await txDetailRes.json();
+        var transactions = [];
+        for (var i = 0; i < submissions.length; i++) {
+          var sub = submissions[i];
+          var reward = sub.tasks?.reward || 0;
+          var approvedAt = sub.approved_at ? new Date(sub.approved_at).getTime() : now;
 
-            if (txDetail.result) {
-              var meta = txDetail.result.meta;
-              var blockTime = txDetail.result.blockTime;
-              var instructions = txDetail.result.transaction.message.instructions || [];
-
-              // Look for token transfers (USDC payouts)
-              var preBalances = meta.preTokenBalances || [];
-              var postBalances = meta.postTokenBalances || [];
-
-              for (var j = 0; j < postBalances.length; j++) {
-                var post = postBalances[j];
-                if (post.mint === USDC_MINT && post.owner !== PAYOUT_WALLET) {
-                  var pre = preBalances.find(function(p) { return p.accountIndex === post.accountIndex; });
-                  var preAmount = pre ? pre.uiTokenAmount.uiAmount : 0;
-                  var postAmount = post.uiTokenAmount.uiAmount || 0;
-                  var diff = postAmount - preAmount;
-
-                  if (diff > 0) {
-                    transactions.push({
-                      signature: sig.signature,
-                      recipient: post.owner,
-                      amount: diff,
-                      timestamp: blockTime * 1000,
-                      slot: sig.slot
-                    });
-                    totalPaidOut += diff;
-                  }
-                }
-              }
-            }
-          } catch (txErr) {
-            // Skip failed transaction fetches
+          totalPaidOut += reward;
+          if (approvedAt > dayAgo) {
+            last24hPaid += reward;
           }
+
+          transactions.push({
+            id: sub.id,
+            username: sub.users?.username || 'Unknown',
+            avatar_url: sub.users?.avatar_url || '',
+            wallet: sub.users?.wallet_address || '',
+            amount: reward,
+            task_title: sub.tasks?.title || 'Task',
+            timestamp: sub.approved_at || sub.created_at,
+            status: 'completed'
+          });
         }
 
         return res.status(200).json({
           transactions: transactions,
           stats: {
-            balance: usdcBalance,
             totalPaidOut: totalPaidOut,
-            transactionCount: transactions.length,
-            walletAddress: PAYOUT_WALLET
+            last24hPaid: last24hPaid,
+            transactionCount: transactions.length
           }
         });
       } catch (err) {
         console.error('Payouts API error:', err);
         return res.status(200).json({
           transactions: [],
-          stats: { balance: 0, totalPaidOut: 0, transactionCount: 0 },
+          stats: { totalPaidOut: 0, last24hPaid: 0, transactionCount: 0 },
           error: err.message
         });
       }
