@@ -363,128 +363,75 @@ module.exports = async function(req, res) {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
 
       var subId = p.split('/')[4];
-      console.log('APPROVE v4: Starting for ID:', subId);
-      console.log('APPROVE v4: Key role:', KEY_ROLE, '| Supabase URL:', process.env.SUPABASE_URL);
+      console.log('APPROVE v5-RPC: Starting for ID:', subId);
 
-      // Create a FRESH supabase client for this operation to avoid any caching
-      var freshClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false },
-        db: { schema: 'public' }
-      });
-
-      // Step 1: Get current submission
-      var sub = await freshClient.from('submissions').select('*, tasks(*)').eq('id', subId).single();
-      if (sub.error) {
-        console.error('APPROVE v4: Fetch error:', sub.error);
-        return res.status(500).json({error: 'Failed to fetch: ' + sub.error.message, code: 'FETCH_ERROR'});
-      }
-      if (!sub.data) {
+      // Get submission info first for reward/user data
+      var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
+      if (sub.error || !sub.data) {
         return res.status(404).json({error: 'Submission not found', code: 'NOT_FOUND'});
       }
 
-      console.log('APPROVE v4: Current status:', sub.data.status, '| reward:', sub.data.tasks?.reward);
-
-      if (sub.data.status !== 'PENDING') {
-        return res.status(400).json({error: 'Already processed: ' + sub.data.status, code: 'ALREADY_PROCESSED'});
-      }
-
-      // Step 2: Prepare update data
-      var now = new Date().toISOString();
       var reward = sub.data.tasks?.reward || 0;
 
-      // Step 3: Perform the update with select() to get returned data
-      console.log('APPROVE v4: Executing UPDATE...');
-      var updateResult = await freshClient
-        .from('submissions')
-        .update({
-          status: 'APPROVED',
-          approved_at: now,
-          reward: reward  // Also store reward on submission for easier querying
-        })
-        .eq('id', subId)
-        .eq('status', 'PENDING')  // Extra safety: only update if still PENDING
-        .select('id, status, approved_at, reward');
+      // Use the database function to approve - this runs directly in PostgreSQL
+      console.log('APPROVE v5-RPC: Calling approve_submission RPC...');
+      var rpcResult = await supabase.rpc('approve_submission', { submission_id: subId });
 
-      console.log('APPROVE v4: Update result:', JSON.stringify(updateResult));
+      console.log('APPROVE v5-RPC: RPC result:', JSON.stringify(rpcResult));
 
-      if (updateResult.error) {
-        console.error('APPROVE v4: Update error:', updateResult.error);
+      if (rpcResult.error) {
+        console.error('APPROVE v5-RPC: RPC error:', rpcResult.error);
         return res.status(500).json({
-          error: 'Update failed: ' + updateResult.error.message,
-          code: 'UPDATE_ERROR',
-          details: updateResult.error
+          error: 'Database function failed: ' + rpcResult.error.message,
+          code: 'RPC_ERROR',
+          details: rpcResult.error
         });
       }
 
-      if (!updateResult.data || updateResult.data.length === 0) {
-        // Update returned 0 rows - either RLS blocked it or status changed
-        console.error('APPROVE v4: Update returned 0 rows!');
+      var result = rpcResult.data;
+      console.log('APPROVE v5-RPC: Function returned:', result);
 
-        // Check current state
-        var checkState = await freshClient.from('submissions').select('id, status').eq('id', subId).single();
-        return res.status(500).json({
-          error: 'Update returned 0 rows',
-          code: 'ZERO_ROWS',
-          currentStatus: checkState.data?.status,
-          hint: 'RLS may be blocking the update or status changed concurrently'
+      // Check if function returned an error
+      if (result.error) {
+        return res.status(400).json({
+          error: result.error,
+          code: 'FUNCTION_ERROR',
+          currentStatus: result.status
         });
       }
 
-      var returnedStatus = updateResult.data[0].status;
-      console.log('APPROVE v4: Update returned status:', returnedStatus);
-
-      if (returnedStatus !== 'APPROVED') {
+      // Verify the update worked
+      if (result.after !== 'APPROVED') {
         return res.status(500).json({
-          error: 'Update returned wrong status: ' + returnedStatus,
-          code: 'WRONG_STATUS_RETURNED'
+          error: 'Function did not set status to APPROVED',
+          code: 'STATUS_NOT_SET',
+          result: result
         });
       }
 
-      // Step 4: AGGRESSIVE verification - wait and check multiple times with DIFFERENT clients
-      var verifications = [];
+      // Double-check with a fresh read
+      await new Promise(r => setTimeout(r, 500));
+      var verifyRead = await supabase.from('submissions').select('id, status').eq('id', subId).single();
+      console.log('APPROVE v5-RPC: Verify read after 500ms:', verifyRead.data?.status);
 
-      // Verify 1: Immediate with same client
-      var v1 = await freshClient.from('submissions').select('status').eq('id', subId).single();
-      verifications.push({ delay: '0ms', client: 'fresh', status: v1.data?.status });
-      console.log('APPROVE v4: Verify 0ms:', v1.data?.status);
-
-      // Verify 2: 200ms with original global client
-      await new Promise(r => setTimeout(r, 200));
-      var v2 = await supabase.from('submissions').select('status').eq('id', subId).single();
-      verifications.push({ delay: '200ms', client: 'global', status: v2.data?.status });
-      console.log('APPROVE v4: Verify 200ms (global client):', v2.data?.status);
-
-      // Verify 3: 500ms with brand new client
-      await new Promise(r => setTimeout(r, 300));
-      var newestClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
-      var v3 = await newestClient.from('submissions').select('status').eq('id', subId).single();
-      verifications.push({ delay: '500ms', client: 'newest', status: v3.data?.status });
-      console.log('APPROVE v4: Verify 500ms (newest client):', v3.data?.status);
-
-      // Check if any verification shows non-APPROVED
-      var failed = verifications.find(v => v.status !== 'APPROVED');
-      if (failed) {
-        console.error('APPROVE v4: VERIFICATION FAILED!', failed);
+      if (verifyRead.data?.status !== 'APPROVED') {
         return res.status(500).json({
-          error: 'CRITICAL: Status reverted after update!',
-          code: 'STATUS_REVERTED',
-          verifications: verifications,
-          hint: 'There may be a database trigger reverting the change. Check Supabase Dashboard > Database > Triggers'
+          error: 'CRITICAL: Status reverted after RPC! Database has: ' + verifyRead.data?.status,
+          code: 'STATUS_REVERTED_AFTER_RPC',
+          rpcResult: result,
+          verifyResult: verifyRead.data?.status,
+          hint: 'There is definitely a trigger or policy reverting this. Check Supabase > Database > Triggers'
         });
       }
 
-      console.log('APPROVE v4: All verifications passed!');
-
-      // Step 5: Update user stats (non-blocking, catch errors)
+      // Update user stats
       try {
         await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
       } catch (e) {
-        console.log('APPROVE v4: Stats update failed (non-critical):', e.message);
+        console.log('APPROVE v5-RPC: Stats update failed (non-critical):', e.message);
       }
 
-      // Step 6: Add activity (non-blocking)
+      // Add activity
       try {
         var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
         await supabase.from('activity').insert({
@@ -496,37 +443,17 @@ module.exports = async function(req, res) {
           amount: reward
         });
       } catch (e) {
-        console.log('APPROVE v4: Activity insert failed (non-critical):', e.message);
-      }
-
-      // Step 7: Final verification after 1 second with yet another client
-      await new Promise(r => setTimeout(r, 500));
-      var finalClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
-      var finalCheck = await finalClient.from('submissions').select('id, status, approved_at').eq('id', subId).single();
-      verifications.push({ delay: '1000ms', client: 'final', status: finalCheck.data?.status });
-      console.log('APPROVE v4: Final check at 1000ms:', finalCheck.data?.status);
-
-      if (finalCheck.data?.status !== 'APPROVED') {
-        return res.status(500).json({
-          error: 'CRITICAL: Final verification failed! Status is: ' + finalCheck.data?.status,
-          code: 'FINAL_VERIFICATION_FAILED',
-          verifications: verifications,
-          hint: 'Check for database triggers or background processes resetting status'
-        });
+        console.log('APPROVE v5-RPC: Activity insert failed (non-critical):', e.message);
       }
 
       return res.status(200).json({
         success: true,
-        message: 'Submission approved and verified',
-        submission: finalCheck.data,
+        message: 'Submission approved via database function',
+        submission: { id: subId, status: 'APPROVED' },
         debug: {
-          codeVersion: CODE_VERSION,
-          keyRole: KEY_ROLE,
-          supabaseUrl: (process.env.SUPABASE_URL || '').substring(0, 30) + '...',
-          verifications: verifications,
-          submissionId: subId,
+          codeVersion: 'v5-RPC',
+          rpcResult: result,
+          verifyStatus: verifyRead.data?.status,
           reward: reward
         }
       });
