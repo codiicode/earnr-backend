@@ -89,8 +89,21 @@ module.exports = async function(req, res) {
     if (p === '/api/earnrs' || p === '/api/hunters') { var r = await supabase.from('users').select('*').order('created_at', {ascending: false}); return res.status(200).json({earnrs: r.data || [], hunters: r.data || []}); }
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
 
-    var htmlPath = path.join(process.cwd(), 'public', 'index.html');
-    if (fs.existsSync(htmlPath)) { res.setHeader('Content-Type', 'text/html'); return res.status(200).send(fs.readFileSync(htmlPath, 'utf8')); }
+    var user = await getUser();
+    res.setHeader('Content-Type', 'text/html');
+    
+    if (user) {
+      var dashboardPath = path.join(process.cwd(), 'public', 'dashboard.html');
+      if (fs.existsSync(dashboardPath)) {
+        return res.status(200).send(fs.readFileSync(dashboardPath, 'utf8'));
+      }
+    }
+    
+    var landingPath = path.join(process.cwd(), 'public', 'index.html');
+    if (fs.existsSync(landingPath)) {
+      return res.status(200).send(fs.readFileSync(landingPath, 'utf8'));
+    }
+    
     return res.status(200).send('EARNR API');
   } catch(err) { 
     console.error(err); 
