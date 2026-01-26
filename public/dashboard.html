@@ -153,7 +153,7 @@
         }
 
         .nav-badge.live {
-            background: var(--yellow);
+            background: var(--green);
         }
 
         /* User Dropdown */
@@ -1160,6 +1160,140 @@
 
         .overlay.open { opacity: 1; pointer-events: all; }
 
+        /* Submission Modal */
+        .submit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .submit-modal.open {
+            display: flex;
+        }
+
+        .submit-modal-content {
+            background: var(--black-light);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            animation: popIn 0.3s ease;
+        }
+
+        .submit-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .submit-modal-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.3rem;
+        }
+
+        .submit-modal-close {
+            background: none;
+            border: none;
+            color: var(--gray);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .submit-modal-close:hover {
+            color: var(--white);
+        }
+
+        .submit-form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .submit-form-label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--gray-light);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        .submit-form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--black);
+            border: 1px solid var(--border);
+            color: var(--white);
+            font-family: 'Geist Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .submit-form-input:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+
+        .submit-form-input::placeholder {
+            color: var(--gray);
+        }
+
+        .submit-form-textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--black);
+            border: 1px solid var(--border);
+            color: var(--white);
+            font-family: 'Geist Mono', monospace;
+            font-size: 0.85rem;
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .submit-form-textarea:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+
+        .submit-form-textarea::placeholder {
+            color: var(--gray);
+        }
+
+        .submit-modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .submit-modal-actions .btn {
+            flex: 1;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--gray-light);
+            padding: 0.75rem 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--white);
+            color: var(--white);
+        }
+
         /* Responsive */
         @media (max-width: 1400px) {
             .earnrs-grid { grid-template-columns: repeat(3, 1fr); }
@@ -1660,6 +1794,32 @@
 
     <!-- Notifications -->
     <div class="overlay" id="overlay"></div>
+
+    <!-- Submission Modal -->
+    <div class="submit-modal" id="submitModal">
+        <div class="submit-modal-content">
+            <div class="submit-modal-header">
+                <span class="submit-modal-title">Submit Task</span>
+                <button class="submit-modal-close" onclick="closeSubmitModal()">&times;</button>
+            </div>
+            <form id="submitForm" onsubmit="handleSubmitTask(event)">
+                <input type="hidden" id="submitTaskId">
+                <div class="submit-form-group">
+                    <label class="submit-form-label">Enter the URL of your proof (tweet link, video link, etc)</label>
+                    <input type="url" class="submit-form-input" id="submitProofUrl" placeholder="https://twitter.com/..." required>
+                </div>
+                <div class="submit-form-group">
+                    <label class="submit-form-label">Additional comment (optional)</label>
+                    <textarea class="submit-form-textarea" id="submitComment" placeholder="Any additional context..."></textarea>
+                </div>
+                <div class="submit-modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeSubmitModal()">CANCEL</button>
+                    <button type="submit" class="btn btn-primary">SUBMIT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="notif-panel" id="notifPanel">
         <div class="notif-header">
             <span class="notif-title">Notifications</span>
@@ -1726,6 +1886,13 @@
             document.getElementById('notifPanel').classList.remove('open');
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
+        });
+
+        // Close submit modal when clicking outside
+        document.getElementById('submitModal').addEventListener('click', (e) => {
+            if (e.target.id === 'submitModal') {
+                closeSubmitModal();
+            }
         });
 
         // Tabs & Filters
@@ -2282,7 +2449,8 @@ function showPopup(message, isError) {
                                 <div class="slots-text">${task.slots_total - task.slots_filled} of ${task.slots_total} slots left</div>
                             </div>
                             <div class="task-action">
-                                <button class="btn btn-primary" onclick="claimTask('${task.id}')">CLAIM</button>
+                                ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
+                                <button class="btn btn-primary" onclick="openSubmitModal('${task.id}')">SUBMIT</button>
                             </div>
                         </div>
                     `).join('');
@@ -2318,34 +2486,52 @@ function showPopup(message, isError) {
             }
         }
 
-        async function claimTask(taskId) {
+        function openSubmitModal(taskId) {
             if (!currentUser) {
-                alert('Please sign in with X first');
+                showPopup('Please sign in with X first');
                 return;
             }
-            
-            const proofUrl = prompt('Enter the URL of your proof (tweet link, video link, etc):');
-            if (!proofUrl) return;
-            
+            document.getElementById('submitTaskId').value = taskId;
+            document.getElementById('submitProofUrl').value = '';
+            document.getElementById('submitComment').value = '';
+            document.getElementById('submitModal').classList.add('open');
+        }
+
+        function closeSubmitModal() {
+            document.getElementById('submitModal').classList.remove('open');
+        }
+
+        async function handleSubmitTask(event) {
+            event.preventDefault();
+
+            const taskId = document.getElementById('submitTaskId').value;
+            const proofUrl = document.getElementById('submitProofUrl').value;
+            const comment = document.getElementById('submitComment').value;
+
             try {
                 const res = await fetch('/api/submissions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ task_id: taskId, proof_url: proofUrl })
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        proof_url: proofUrl,
+                        comment: comment
+                    })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (data.error) {
-                    alert(data.error);
+                    showPopup(data.error);
                 } else {
-                    alert('Submission received! We will review it shortly.');
+                    closeSubmitModal();
+                    showPopup('Submission received! We will review it shortly.');
                     loadTasks();
                 }
             } catch (err) {
                 console.error('Failed to submit:', err);
-                alert('Failed to submit. Please try again.');
+                showPopup('Failed to submit. Please try again.');
             }
         }
 
