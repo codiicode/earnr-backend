@@ -656,9 +656,9 @@
                     <div class="form-group">
                         <label class="form-label">CATEGORY</label>
                         <select class="form-select" id="taskCategory">
-                            <option value="SOCIAL">SOCIAL</option>
-                            <option value="CONTENT">CONTENT</option>
-                            <option value="COMMUNITY">COMMUNITY</option>
+                            <option value="X">X</option>
+                            <option value="TIKTOK">TIKTOK</option>
+                            <option value="YOUTUBE">YOUTUBE</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1179,7 +1179,7 @@
             document.getElementById('taskDescription').value = task.description || '';
             document.getElementById('taskUrl').value = task.task_url || '';
             document.getElementById('taskReward').value = task.reward || 0;
-            document.getElementById('taskCategory').value = task.category || 'SOCIAL';
+            document.getElementById('taskCategory').value = task.category || 'X';
             document.getElementById('taskDifficulty').value = task.difficulty || 'EASY';
             document.getElementById('taskSlots').value = task.slots_total || 100;
             document.getElementById('taskMinFollowers').value = task.min_followers || 0;
@@ -1200,7 +1200,7 @@
             document.getElementById('taskDescription').value = '';
             document.getElementById('taskUrl').value = '';
             document.getElementById('taskReward').value = '';
-            document.getElementById('taskCategory').value = 'SOCIAL';
+            document.getElementById('taskCategory').value = 'X';
             document.getElementById('taskDifficulty').value = 'EASY';
             document.getElementById('taskSlots').value = '100';
             document.getElementById('taskMinFollowers').value = '0';

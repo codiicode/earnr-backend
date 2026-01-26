@@ -462,7 +462,7 @@ module.exports = async function(req, res) {
         description: data.description || '',
         reward: parseFloat(data.reward) || 0,
         task_url: data.task_url || null,
-        category: data.category || 'SOCIAL',
+        category: data.category || 'X',
         difficulty: data.difficulty || 'EASY',
         slots_total: parseInt(data.slots_total) || 100,
         slots_filled: 0,
