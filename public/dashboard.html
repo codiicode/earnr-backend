@@ -352,6 +352,7 @@
         }
 
         .page.active { display: block; }
+        #earnrs.active { display: block !important; visibility: visible !important; opacity: 1 !important; }
 
         /* Stats Grid - FULL WIDTH */
         .stats-grid {
@@ -1704,12 +1705,11 @@
                 </div>
             </div>
 
+
             <!-- earnrs -->
             <div class="page" id="earnrs">
-                <div style="background:#00ff00;color:#000;padding:20px;margin-bottom:20px;font-size:20px;font-weight:bold;">
-                    TEST: If you can see this green box, the page is rendering!
-                </div>
-                <div class="stats-grid" id="earnrs-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:2rem">
+                <h2 style="color:#0f0;margin-bottom:2rem;">EARNRS PAGE</h2>
+                <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-label">Total Earnrs</div>
                         <div class="stat-value" id="stat-total-earnrs">0</div>
@@ -1726,22 +1726,21 @@
                         <div class="stat-change">last 24h</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Total Paid Out</div>
+                        <div class="stat-label">Total Paid</div>
                         <div class="stat-value" id="stat-total-paid">0</div>
                         <div class="stat-change">USDC</div>
                     </div>
                 </div>
-
-                <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:2rem">
+                <div class="stats-grid" style="margin-top:2rem;">
                     <div class="stat-card">
-                        <div class="stat-label">Tasks Completed</div>
+                        <div class="stat-label">Tasks Done</div>
                         <div class="stat-value" id="stat-total-tasks">0</div>
                         <div class="stat-change">total</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Avg per Earnr</div>
+                        <div class="stat-label">Avg Earned</div>
                         <div class="stat-value" id="stat-avg-earned">0</div>
-                        <div class="stat-change">USDC earned</div>
+                        <div class="stat-change">per user</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Top Earner</div>
@@ -1749,29 +1748,23 @@
                         <div class="stat-change" id="stat-top-earner-amount">-</div>
                     </div>
                 </div>
-
-                <div class="card" style="margin-bottom:2rem">
+                <div class="card" style="margin-top:2rem;">
                     <div class="card-header">
                         <span class="card-title">Recent Signups</span>
-                        <div class="live-badge">
-                            <span class="live-dot"></span>LIVE
-                        </div>
+                        <div class="live-badge"><span class="live-dot"></span>LIVE</div>
                     </div>
                     <div class="card-body" id="signupsFeed">
                         <div class="empty-state">
                             <div class="empty-state-icon">-</div>
                             <div class="empty-state-text">No signups yet</div>
-                            <div class="empty-state-sub">Be the first to join</div>
                         </div>
                     </div>
                 </div>
-
-                <h3 style="font-size:0.9rem;margin-bottom:1.5rem;font-weight:500;">All Earnrs</h3>
+                <h3 style="color:#888;font-size:0.9rem;margin:2rem 0 1rem;">All Earnrs</h3>
                 <div id="earnrs-list" class="earnrs-grid">
-                    <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);grid-column:1/-1;">
+                    <div class="empty-state" style="background:#111;border:1px solid #333;grid-column:1/-1;">
                         <div class="empty-state-icon">-</div>
-                        <div class="empty-state-text">No earnrs registered</div>
-                        <div class="empty-state-sub">Connect with X to become the first earnr</div>
+                        <div class="empty-state-text">No earnrs yet</div>
                     </div>
                 </div>
             </div>
@@ -1853,29 +1846,21 @@
 
         // Navigation
         function navigateTo(page) {
-            console.log('[NAV] Navigating to:', page);
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
-            const pageEl = document.getElementById(page);
-            console.log('[NAV] Page element found:', !!pageEl, pageEl);
-            if (pageEl) {
-                pageEl.classList.add('active');
-                console.log('[NAV] Active class added. Has active:', pageEl.classList.contains('active'));
-                console.log('[NAV] Page computed display:', window.getComputedStyle(pageEl).display);
-            }
+            document.getElementById(page).classList.add('active');
             document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
             document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
 
-            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts', earnrs:'earnrs' };
+            const titles = { dashboard:'Dashboard', tasks:'Browse Tasks', submissions:'My Submissions', profile:'My Profile', payouts:'Payouts', earnrs:'Earnrs' };
             document.getElementById('pageTitle').textContent = titles[page];
 
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
             window.scrollTo(0, 0);
 
-            // Load page-specific data
             if (page === 'tasks') loadTasks();
             if (page === 'submissions') loadSubmissions();
             if (page === 'earnrs') loadearnrs();
@@ -2709,110 +2694,60 @@ function showPopup(message, isError) {
         // ============================================
 
         async function loadearnrs() {
-            console.log('[EARNRS] Starting loadearnrs...');
-
-            // First verify the page element exists and is visible
-            const earnrsPage = document.getElementById('earnrs');
-            console.log('[EARNRS] Page element:', earnrsPage);
-            console.log('[EARNRS] Page has active class:', earnrsPage?.classList.contains('active'));
-
             try {
-                // Fetch users
                 const res = await fetch('/api/earnrs');
                 const data = await res.json();
                 const earnrs = data.earnrs || [];
-                console.log('[EARNRS] Fetched', earnrs.length, 'users');
 
-                // Fetch stats
                 const statsRes = await fetch('/api/stats');
                 const stats = await statsRes.json();
-                console.log('[EARNRS] Stats:', stats);
 
-                // Calculate values
-                const totalEarnrs = earnrs.length;
-                const onlineNow = stats.onlineUsers || 0;
-                const newToday = earnrs.filter(e => new Date(e.created_at) > new Date(Date.now() - 86400000)).length;
-                const totalPaid = earnrs.reduce((sum, e) => sum + (e.total_earned || 0), 0);
-                const totalTasks = earnrs.reduce((sum, e) => sum + (e.tasks_completed || 0), 0);
-                const avgEarned = totalEarnrs > 0 ? Math.round(totalPaid / totalEarnrs) : 0;
-                const topEarner = earnrs.length > 0 ? earnrs.reduce((max, e) => (e.total_earned || 0) > (max.total_earned || 0) ? e : max, earnrs[0]) : null;
+                // Update stats
+                document.getElementById('stat-total-earnrs').textContent = earnrs.length;
+                document.getElementById('stat-online-now').textContent = stats.onlineUsers || 0;
+                document.getElementById('stat-new-today').textContent = earnrs.filter(e => new Date(e.created_at) > new Date(Date.now() - 86400000)).length;
+                document.getElementById('stat-total-paid').textContent = formatNumber(earnrs.reduce((s, e) => s + (e.total_earned || 0), 0));
+                document.getElementById('stat-total-tasks').textContent = earnrs.reduce((s, e) => s + (e.tasks_completed || 0), 0);
+                document.getElementById('stat-avg-earned').textContent = earnrs.length > 0 ? formatNumber(Math.round(earnrs.reduce((s, e) => s + (e.total_earned || 0), 0) / earnrs.length)) : '0';
 
-                // Update stats with null checks
-                const el1 = document.getElementById('stat-total-earnrs');
-                const el2 = document.getElementById('stat-online-now');
-                const el3 = document.getElementById('stat-new-today');
-                const el4 = document.getElementById('stat-total-paid');
-                const el5 = document.getElementById('stat-total-tasks');
-                const el6 = document.getElementById('stat-avg-earned');
-                const el7 = document.getElementById('stat-top-earner');
-                const el8 = document.getElementById('stat-top-earner-amount');
+                const top = earnrs.length > 0 ? earnrs.reduce((m, e) => (e.total_earned || 0) > (m.total_earned || 0) ? e : m, earnrs[0]) : null;
+                if (top) {
+                    document.getElementById('stat-top-earner').textContent = '@' + top.username;
+                    document.getElementById('stat-top-earner-amount').textContent = formatNumber(top.total_earned) + ' USDC';
+                }
 
-                console.log('[EARNRS] Stat elements found:', {el1: !!el1, el2: !!el2, el3: !!el3, el4: !!el4, el5: !!el5, el6: !!el6, el7: !!el7, el8: !!el8});
-
-                if (el1) el1.textContent = totalEarnrs;
-                if (el2) el2.textContent = onlineNow;
-                if (el3) el3.textContent = newToday;
-                if (el4) el4.textContent = formatNumber(totalPaid);
-                if (el5) el5.textContent = totalTasks;
-                if (el6) el6.textContent = formatNumber(avgEarned);
-                if (topEarner && el7) el7.textContent = '@' + topEarner.username;
-                if (topEarner && el8) el8.textContent = formatNumber(topEarner.total_earned) + ' USDC';
-
-                console.log('[EARNRS] Stats updated');
-
-                // Update signups feed
+                // Update signups
                 const signupsFeed = document.getElementById('signupsFeed');
-                console.log('[EARNRS] signupsFeed element:', !!signupsFeed);
-                if (signupsFeed && earnrs.length > 0) {
-                    signupsFeed.innerHTML = earnrs.slice(0, 5).map(earnr => `
-                        <div class="activity-item" style="cursor:pointer" onclick="viewUserProfile('${earnr.id}')">
-                            <div class="activity-avatar">
-                                ${earnr.avatar_url ? `<img src="${earnr.avatar_url}" alt="">` : ''}
-                            </div>
+                if (earnrs.length > 0) {
+                    signupsFeed.innerHTML = earnrs.slice(0, 5).map(u => `
+                        <div class="activity-item" onclick="viewUserProfile('${u.id}')" style="cursor:pointer">
+                            <div class="activity-avatar">${u.avatar_url ? `<img src="${u.avatar_url}">` : ''}</div>
                             <div class="activity-content">
-                                <div class="activity-text">
-                                    <strong>@${earnr.username}</strong> joined EARNR
-                                </div>
-                                <div class="activity-meta">${timeAgo(earnr.created_at)}</div>
+                                <div class="activity-text"><strong>@${u.username}</strong> joined</div>
+                                <div class="activity-meta">${timeAgo(u.created_at)}</div>
                             </div>
                             <div class="activity-badge join">NEW</div>
                         </div>
                     `).join('');
                 }
-                console.log('[EARNRS] Signups updated');
 
-                // Update earnrs grid
-                const earnrsContainer = document.getElementById('earnrs-list');
-                console.log('[EARNRS] earnrs-list element:', !!earnrsContainer);
-                if (earnrsContainer) {
-                    if (earnrs.length > 0) {
-                        earnrsContainer.innerHTML = earnrs.map(earnr => `
-                            <div class="earnr-card" style="cursor:pointer" onclick="viewUserProfile('${earnr.id}')">
-                                <div class="earnr-avatar">
-                                    ${earnr.avatar_url ? `<img src="${earnr.avatar_url}" alt="">` : ''}
-                                </div>
-                                <div class="earnr-name">${earnr.display_name || earnr.username}</div>
-                                <div class="earnr-handle">@${earnr.username}</div>
-                                <div class="earnr-stats">
-                                    <div><span class="earnr-stat-value">${earnr.tasks_completed || 0}</span> tasks</div>
-                                    <div><span class="earnr-stat-value">${formatNumber(earnr.total_earned)}</span> USDC</div>
-                                </div>
+                // Update user list
+                const list = document.getElementById('earnrs-list');
+                if (earnrs.length > 0) {
+                    list.innerHTML = earnrs.map(u => `
+                        <div class="earnr-card" onclick="viewUserProfile('${u.id}')" style="cursor:pointer">
+                            <div class="earnr-avatar">${u.avatar_url ? `<img src="${u.avatar_url}">` : ''}</div>
+                            <div class="earnr-name">${u.display_name || u.username}</div>
+                            <div class="earnr-handle">@${u.username}</div>
+                            <div class="earnr-stats">
+                                <div><span class="earnr-stat-value">${u.tasks_completed || 0}</span> tasks</div>
+                                <div><span class="earnr-stat-value">${formatNumber(u.total_earned)}</span> USDC</div>
                             </div>
-                        `).join('');
-                        console.log('[EARNRS] Rendered', earnrs.length, 'user cards');
-                    } else {
-                        earnrsContainer.innerHTML = `
-                            <div class="empty-state" style="background:var(--gray-dark);border:1px solid var(--border);grid-column:1/-1;">
-                                <div class="empty-state-icon">-</div>
-                                <div class="empty-state-text">No earnrs registered</div>
-                                <div class="empty-state-sub">Connect with X to become the first earnr</div>
-                            </div>
-                        `;
-                    }
+                        </div>
+                    `).join('');
                 }
-                console.log('[EARNRS] Complete!');
             } catch (err) {
-                console.error('[EARNRS] Error:', err);
+                console.error('loadearnrs error:', err);
             }
         }
 
