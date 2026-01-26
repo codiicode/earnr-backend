@@ -193,7 +193,24 @@ module.exports = async function(req, res) {
       return res.status(200).json({earnrs: r.data || [], hunters: r.data || []});
     }
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
-    if (p === '/api/wallet' && req.method === 'POST') { var u = await getUser(); if(!u) return res.status(401).json({error: 'Not logged in'}); var body = ''; for await (var chunk of req) { body += chunk; } var data = JSON.parse(body); await supabase.from('users').update({wallet_address: String(data.wallet || '').trim()}).eq('id', u.id); return res.status(200).json({success: true}); }
+    if (p === '/api/wallet' && req.method === 'POST') {
+      var u = await getUser();
+      if(!u) return res.status(401).json({error: 'Not logged in'});
+      var body = ''; for await (var chunk of req) { body += chunk; }
+      var data = JSON.parse(body);
+      var wallet = String(data.wallet || '').trim();
+
+      // Validate Solana address format (32-44 chars, Base58)
+      if (wallet) {
+        var base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+        if (wallet.length < 32 || wallet.length > 44 || !base58Regex.test(wallet)) {
+          return res.status(400).json({error: 'Invalid Solana wallet address'});
+        }
+      }
+
+      await supabase.from('users').update({wallet_address: wallet}).eq('id', u.id);
+      return res.status(200).json({success: true});
+    }
 
     // Payouts API - Fetch approved submissions from database
     if (p === '/api/payouts') {
