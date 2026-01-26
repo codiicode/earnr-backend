@@ -414,6 +414,23 @@
             border-top: 1px solid var(--border);
         }
 
+        .ca-badge-sidebar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.65rem;
+            background: var(--gray-dark);
+            border: 1px solid var(--border);
+            font-size: 0.65rem;
+            cursor: pointer;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .ca-badge-sidebar:hover {
+            border-color: var(--green);
+        }
+
         .user-card {
             display: flex;
             align-items: center;
@@ -1587,6 +1604,10 @@
                 </div>
             </nav>
             <div class="sidebar-footer">
+                <div class="ca-badge-sidebar" onclick="copyCA()" title="Click to copy">
+                    <span style="color: var(--gray);">CA:</span>
+                    <span id="caValueSidebar" style="color: var(--green);">Coming Soon</span>
+                </div>
                 <div class="user-card">
                     <div class="user-avatar">X</div>
                     <div class="user-info">
@@ -3031,42 +3052,22 @@ function showPopup(message, isError) {
         init();
     </script>
 
-    <!-- Contract Address Badge -->
-    <div id="caBadge" style="
-        position: fixed;
-        bottom: 1rem;
-        right: 1rem;
-        background: var(--black-light);
-        border: 1px solid var(--border);
-        padding: 0.5rem 1rem;
-        font-size: 0.75rem;
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    ">
-        <span style="color: var(--gray);">CA:</span>
-        <span id="caValue" onclick="copyCA()" style="color: var(--green); cursor: pointer;" title="Click to copy">Coming Soon</span>
-    </div>
-
     <script>
         function copyCA() {
-            const caText = document.getElementById('caValue').textContent;
+            const caText = document.getElementById('caValueSidebar').textContent;
             if (caText === 'Coming Soon') {
-                // Show tooltip that CA is not available yet
-                const badge = document.getElementById('caBadge');
-                const original = document.getElementById('caValue').textContent;
-                document.getElementById('caValue').textContent = 'Not available yet';
+                const original = document.getElementById('caValueSidebar').textContent;
+                document.getElementById('caValueSidebar').textContent = 'Not available yet';
                 setTimeout(() => {
-                    document.getElementById('caValue').textContent = original;
+                    document.getElementById('caValueSidebar').textContent = original;
                 }, 1500);
                 return;
             }
             navigator.clipboard.writeText(caText).then(() => {
-                const original = document.getElementById('caValue').textContent;
-                document.getElementById('caValue').textContent = 'Copied!';
+                const original = document.getElementById('caValueSidebar').textContent;
+                document.getElementById('caValueSidebar').textContent = 'Copied!';
                 setTimeout(() => {
-                    document.getElementById('caValue').textContent = original;
+                    document.getElementById('caValueSidebar').textContent = original;
                 }, 1500);
             });
         }
