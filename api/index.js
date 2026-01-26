@@ -260,7 +260,8 @@ module.exports = async function(req, res) {
     // Helper function to create notifications
     async function createNotification(userId, type, title, message, relatedId = null) {
       try {
-        await supabase.from('notifications').insert({
+        console.log('Creating notification for user:', userId, 'type:', type);
+        var result = await supabase.from('notifications').insert({
           user_id: userId,
           type: type,
           title: title,
@@ -268,8 +269,13 @@ module.exports = async function(req, res) {
           related_id: relatedId,
           is_read: false
         });
+        if (result.error) {
+          console.error('Failed to create notification - Supabase error:', result.error);
+        } else {
+          console.log('Notification created successfully for user:', userId);
+        }
       } catch (e) {
-        console.error('Failed to create notification:', e);
+        console.error('Failed to create notification - Exception:', e);
       }
     }
 
@@ -277,6 +283,10 @@ module.exports = async function(req, res) {
     async function notifyAllUsersNewTask(task) {
       try {
         var usersRes = await supabase.from('users').select('id');
+        if (usersRes.error) {
+          console.error('Failed to fetch users for notification:', usersRes.error);
+          return;
+        }
         var users = usersRes.data || [];
         var notifications = users.map(function(u) {
           return {
@@ -289,10 +299,16 @@ module.exports = async function(req, res) {
           };
         });
         if (notifications.length > 0) {
-          await supabase.from('notifications').insert(notifications);
+          console.log('Creating NEW_TASK notifications for', notifications.length, 'users');
+          var result = await supabase.from('notifications').insert(notifications);
+          if (result.error) {
+            console.error('Failed to create NEW_TASK notifications - Supabase error:', result.error);
+          } else {
+            console.log('NEW_TASK notifications created successfully');
+          }
         }
       } catch (e) {
-        console.error('Failed to notify users of new task:', e);
+        console.error('Failed to notify users of new task - Exception:', e);
       }
     }
 
