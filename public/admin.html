@@ -877,6 +877,12 @@
                             <div class="detail-label">SUBMITTED</div>
                             <div class="detail-value">${new Date(sub.created_at).toLocaleString()}</div>
                         </div>
+                        ${sub.tx_hash ? `
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">TX HASH</div>
+                            <div class="detail-value"><a href="https://solscan.io/tx/${sub.tx_hash}" target="_blank" style="word-break: break-all;">${sub.tx_hash}</a></div>
+                        </div>
+                        ` : ''}
                         ${sub.comment ? `
                         <div class="detail-item" style="grid-column: 1 / -1;">
                             <div class="detail-label">COMMENT</div>
@@ -895,16 +901,35 @@
         }
 
         async function approveSubmission(id) {
-            if (!confirm('Approve this submission? The user will receive the reward.')) return;
+            // Get submission details for the prompt
+            const sub = allSubmissions.find(s => s.id === id);
+            const wallet = sub?.users?.wallet_address || 'NO WALLET SET';
+            const reward = sub?.tasks?.reward || 0;
+
+            // Prompt for tx_hash
+            const txHash = prompt(
+                `APPROVE SUBMISSION\n\n` +
+                `Reward: ${reward} USDC\n` +
+                `Wallet: ${wallet}\n\n` +
+                `After sending USDC, paste the transaction hash (tx signature) below:\n` +
+                `(Leave empty if you haven't sent yet)`
+            );
+
+            // User cancelled
+            if (txHash === null) return;
 
             const card = document.getElementById(`submission-${id}`);
             if (card) card.style.opacity = '0.5';
 
             try {
-                console.log('Approving submission:', id);
+                console.log('Approving submission:', id, 'with tx_hash:', txHash);
                 const res = await fetch(`/api/admin/submissions/${id}/approve`, {
                     method: 'POST',
-                    headers: { 'X-Admin-Key': adminKey }
+                    headers: {
+                        'X-Admin-Key': adminKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ tx_hash: txHash || null })
                 });
 
                 const data = await res.json();

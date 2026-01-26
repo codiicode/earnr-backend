@@ -683,8 +683,15 @@ module.exports = async function(req, res) {
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/approve$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
 
+      // Parse request body for tx_hash
+      var body = '';
+      for await (var chunk of req) { body += chunk; }
+      var bodyData = {};
+      try { bodyData = body ? JSON.parse(body) : {}; } catch (e) { }
+      var txHash = bodyData.tx_hash || null;
+
       var subId = p.split('/')[4];
-      console.log('APPROVE v6: Starting for ID:', subId);
+      console.log('APPROVE v6: Starting for ID:', subId, 'tx_hash:', txHash);
       console.log('APPROVE v6: Key role:', KEY_ROLE);
 
       // Step 1: Get current submission
@@ -708,9 +715,13 @@ module.exports = async function(req, res) {
 
       // Step 2: Do the UPDATE - simple and direct
       console.log('APPROVE v6: Executing UPDATE...');
+      var updateData = { status: 'APPROVED' };
+      if (txHash) {
+        updateData.tx_hash = txHash;
+      }
       var updateResult = await supabase
         .from('submissions')
-        .update({ status: 'APPROVED' })
+        .update(updateData)
         .eq('id', subId)
         .select();
 
