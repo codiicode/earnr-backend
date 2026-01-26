@@ -1457,9 +1457,9 @@
                         <div class="stat-change">lifetime</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Success Rate</div>
-                        <div class="stat-value">-</div>
-                        <div class="stat-change">no data</div>
+                        <div class="stat-label">Global Rank</div>
+                        <div class="stat-value" id="static-global-rank">#-</div>
+                        <div class="stat-change" id="static-rank-status">unranked</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Member Since</div>
@@ -1859,20 +1859,17 @@ function showPopup(message, isError) {
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Completed</div>
-                        <div class="stat-value">${currentUser.tasks_completed}</div>
+                        <div class="stat-value">${currentUser.tasks_completed || 0}</div>
                         <div class="stat-change">lifetime</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Success Rate</div>
-                        <div class="stat-value">${currentUser.tasks_completed > 0 ? '92%' : '-'}</div>
-                        <div class="stat-change">${currentUser.tasks_completed > 0 ? 'excellent' : 'no data yet'}</div>
-                    </div>
-                    <div class="stat-card">
                         <div class="stat-label">Global Rank</div>
-                        <div class="stat-value">#${currentUser.tasks_completed > 0 ? '47' : '-'}</div>
-                        <div class="stat-change">${currentUser.tasks_completed > 0 ? '+12 positions' : 'unranked'}</div>
+                        <div class="stat-value" id="user-global-rank">#-</div>
+                        <div class="stat-change" id="user-rank-status">loading...</div>
                     </div>
                 `;
+                // Fetch real-time global rank
+                fetchGlobalRank();
             }
 
             // Update profile stats
@@ -1889,13 +1886,13 @@ function showPopup(message, isError) {
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Done</div>
-                        <div class="stat-value">${currentUser.tasks_completed}</div>
+                        <div class="stat-value">${currentUser.tasks_completed || 0}</div>
                         <div class="stat-change">lifetime</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Success Rate</div>
-                        <div class="stat-value">${currentUser.tasks_completed > 0 ? '92%' : '-'}</div>
-                        <div class="stat-change">${currentUser.tasks_completed > 0 ? 'excellent' : 'no data'}</div>
+                        <div class="stat-label">Global Rank</div>
+                        <div class="stat-value" id="profile-global-rank">#-</div>
+                        <div class="stat-change" id="profile-rank-status">loading...</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Member Since</div>
@@ -1939,6 +1936,60 @@ function showPopup(message, isError) {
                 if (dashDone) dashDone.textContent = stats.completedTasks || 0;
             } catch (err) {
                 console.error('Failed to load stats:', err);
+            }
+        }
+
+        // Fetch real-time global rank from leaderboard
+        async function fetchGlobalRank() {
+            try {
+                if (!currentUser) return;
+
+                const res = await fetch('/api/leaderboard');
+                const data = await res.json();
+                const leaderboard = data.leaderboard || [];
+
+                // Find user's position in leaderboard (sorted by total_earned)
+                let rank = -1;
+                for (let i = 0; i < leaderboard.length; i++) {
+                    if (leaderboard[i].id === currentUser.id) {
+                        rank = i + 1;
+                        break;
+                    }
+                }
+
+                // Update all rank elements
+                const rankEls = ['user-global-rank', 'profile-global-rank', 'static-global-rank'];
+                const statusEls = ['user-rank-status', 'profile-rank-status', 'static-rank-status'];
+
+                rankEls.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (rank > 0) {
+                            el.textContent = '#' + rank;
+                        } else if (currentUser.total_earned > 0) {
+                            el.textContent = '#' + (leaderboard.length + 1);
+                        } else {
+                            el.textContent = '#-';
+                        }
+                    }
+                });
+
+                statusEls.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (rank === 1) {
+                            el.textContent = 'top earner!';
+                        } else if (rank > 0 && rank <= 10) {
+                            el.textContent = 'top 10';
+                        } else if (rank > 0) {
+                            el.textContent = 'ranked';
+                        } else {
+                            el.textContent = 'unranked';
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error('Failed to fetch global rank:', err);
             }
         }
 
@@ -2404,6 +2455,7 @@ function showPopup(message, isError) {
                     await fetch('/api/heartbeat', { method: 'POST', credentials: 'include' });
                 }
                 loadStats();
+                fetchGlobalRank();
                 // Refresh payouts if on that page
                 const payoutsPage = document.getElementById('payouts');
                 if (payoutsPage && payoutsPage.classList.contains('active')) {
@@ -2422,6 +2474,7 @@ function showPopup(message, isError) {
             await loadActivity();
             await loadLeaderboard();
             await fetchTaskCount();
+            await fetchGlobalRank();
             startHeartbeat();
         }
 
