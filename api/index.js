@@ -259,56 +259,86 @@ module.exports = async function(req, res) {
 
     // Helper function to create notifications
     async function createNotification(userId, type, title, message, relatedId = null) {
+      console.log('NOTIFICATION: Starting create for user:', userId, 'type:', type);
+
+      if (!userId) {
+        console.error('NOTIFICATION: No userId provided!');
+        return { success: false, error: 'No userId provided' };
+      }
+
       try {
-        console.log('Creating notification for user:', userId, 'type:', type);
-        var result = await supabase.from('notifications').insert({
+        var insertData = {
           user_id: userId,
           type: type,
           title: title,
           message: message,
-          related_id: relatedId,
           is_read: false
-        });
-        if (result.error) {
-          console.error('Failed to create notification - Supabase error:', result.error);
-        } else {
-          console.log('Notification created successfully for user:', userId);
+        };
+
+        // Only add related_id if provided (some tables might not have this column)
+        if (relatedId) {
+          insertData.related_id = relatedId;
         }
+
+        console.log('NOTIFICATION: Inserting:', JSON.stringify(insertData));
+
+        var result = await supabase.from('notifications').insert(insertData).select();
+
+        console.log('NOTIFICATION: Result:', JSON.stringify(result));
+
+        if (result.error) {
+          console.error('NOTIFICATION: Supabase error:', result.error);
+          return { success: false, error: result.error.message, details: result.error };
+        }
+
+        console.log('NOTIFICATION: Success! Created for user:', userId);
+        return { success: true, data: result.data };
       } catch (e) {
-        console.error('Failed to create notification - Exception:', e);
+        console.error('NOTIFICATION: Exception:', e.message);
+        return { success: false, error: e.message };
       }
     }
 
     // Create notifications for all users when new task is added
     async function notifyAllUsersNewTask(task) {
+      console.log('NEW_TASK_NOTIFY: Starting for task:', task.id, task.title);
       try {
         var usersRes = await supabase.from('users').select('id');
         if (usersRes.error) {
-          console.error('Failed to fetch users for notification:', usersRes.error);
-          return;
+          console.error('NEW_TASK_NOTIFY: Failed to fetch users:', usersRes.error);
+          return { success: false, error: usersRes.error.message };
         }
         var users = usersRes.data || [];
+        console.log('NEW_TASK_NOTIFY: Found', users.length, 'users');
+
+        if (users.length === 0) {
+          return { success: true, message: 'No users to notify' };
+        }
+
         var notifications = users.map(function(u) {
           return {
             user_id: u.id,
             type: 'NEW_TASK',
             title: 'New Task Available',
             message: task.title + ' - ' + task.reward + ' USDC',
-            related_id: task.id,
             is_read: false
           };
         });
-        if (notifications.length > 0) {
-          console.log('Creating NEW_TASK notifications for', notifications.length, 'users');
-          var result = await supabase.from('notifications').insert(notifications);
-          if (result.error) {
-            console.error('Failed to create NEW_TASK notifications - Supabase error:', result.error);
-          } else {
-            console.log('NEW_TASK notifications created successfully');
-          }
+
+        console.log('NEW_TASK_NOTIFY: Inserting', notifications.length, 'notifications');
+        var result = await supabase.from('notifications').insert(notifications).select();
+        console.log('NEW_TASK_NOTIFY: Result:', JSON.stringify(result));
+
+        if (result.error) {
+          console.error('NEW_TASK_NOTIFY: Supabase error:', result.error);
+          return { success: false, error: result.error.message, details: result.error };
         }
+
+        console.log('NEW_TASK_NOTIFY: Success!');
+        return { success: true, count: notifications.length };
       } catch (e) {
-        console.error('Failed to notify users of new task - Exception:', e);
+        console.error('NEW_TASK_NOTIFY: Exception:', e.message);
+        return { success: false, error: e.message };
       }
     }
 
@@ -493,11 +523,12 @@ module.exports = async function(req, res) {
       }
 
       // Notify all users about new task (only if task is active)
+      var notifyResult = null;
       if (r.data && r.data.is_active) {
-        await notifyAllUsersNewTask(r.data);
+        notifyResult = await notifyAllUsersNewTask(r.data);
       }
 
-      return res.status(200).json({success: true, task: r.data});
+      return res.status(200).json({success: true, task: r.data, notification: notifyResult});
     }
 
     // Admin Tasks API - Update task
@@ -752,26 +783,25 @@ module.exports = async function(req, res) {
       }
 
       // Step 6: Create notification for user
-      try {
-        await createNotification(
-          sub.data.user_id,
-          'APPROVED',
-          'Submission Approved!',
-          'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was approved! +' + reward + ' USDC',
-          subId
-        );
-      } catch (e) {
-        console.log('APPROVE v6: Notification create failed:', e.message);
-      }
+      var notificationResult = await createNotification(
+        sub.data.user_id,
+        'APPROVED',
+        'Submission Approved!',
+        'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was approved! +' + reward + ' USDC',
+        subId
+      );
+      console.log('APPROVE v6: Notification result:', JSON.stringify(notificationResult));
 
       console.log('APPROVE v6: SUCCESS!');
       return res.status(200).json({
         success: true,
         message: 'Submission approved successfully',
         submission: { id: subId, status: 'APPROVED' },
+        notification: notificationResult,
         debug: {
           version: 'v6-DIRECT',
           keyRole: KEY_ROLE,
+          userId: sub.data.user_id,
           updateReturnedStatus: updatedStatus,
           verifyStatus: verifyResult.data?.status,
           reward: reward
@@ -840,19 +870,21 @@ module.exports = async function(req, res) {
       }
 
       // Create notification for user
-      try {
-        await createNotification(
-          sub.data.user_id,
-          'REJECTED',
-          'Submission Rejected',
-          'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was not approved.',
-          subId
-        );
-      } catch (e) {
-        console.log('REJECT: Notification create failed:', e.message);
-      }
+      var notificationResult = await createNotification(
+        sub.data.user_id,
+        'REJECTED',
+        'Submission Rejected',
+        'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was not approved.',
+        subId
+      );
+      console.log('REJECT: Notification result:', JSON.stringify(notificationResult));
 
-      return res.status(200).json({success: true, submission: verifyResult.data});
+      return res.status(200).json({
+        success: true,
+        submission: verifyResult.data,
+        notification: notificationResult,
+        debug: { userId: sub.data.user_id }
+      });
     }
 
     // Serve how it works page
