@@ -88,7 +88,7 @@ module.exports = async function(req, res) {
       var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString();
       var onlineRes = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo);
       var tasksRes = await supabase.from('tasks').select('*', {count: 'exact', head: true}).eq('is_active', true);
-      var approvedRes = await supabase.from('submissions').select('reward').eq('status', 'approved');
+      var approvedRes = await supabase.from('submissions').select('reward').eq('status', 'APPROVED');
       var totalPaid = (approvedRes.data || []).reduce((sum, s) => sum + (s.reward || 0), 0);
       var completedCount = (approvedRes.data || []).length;
       return res.status(200).json({
@@ -120,7 +120,7 @@ module.exports = async function(req, res) {
         var approvedRes = await supabase
           .from('submissions')
           .select('*, users(*), tasks(*)')
-          .eq('status', 'approved')
+          .eq('status', 'APPROVED')
           .order('approved_at', {ascending: false});
 
         var submissions = approvedRes.data || [];
