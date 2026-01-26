@@ -1925,14 +1925,17 @@ function showPopup(message, isError) {
         let payoutChart = null;
 
         async function loadPayouts() {
+            console.log('[EARNR] loadPayouts() called');
             try {
                 const res = await fetch('/api/payouts');
                 const data = await res.json();
+                console.log('[EARNR] API response:', data);
                 payoutData = data;
 
                 // Update wallet address display
                 const walletEl = document.getElementById('payoutWalletAddress');
                 const solscanEl = document.getElementById('solscanLink');
+                console.log('[EARNR] Elements found:', { walletEl: !!walletEl, solscanEl: !!solscanEl });
 
                 if (walletEl && data.stats && data.stats.walletAddress) {
                     const addr = data.stats.walletAddress;
