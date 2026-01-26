@@ -242,10 +242,11 @@ module.exports = async function(req, res) {
     }
 
     // Admin API
-    var adminKey = req.headers['x-admin-key'];
-    var validAdminKey = process.env.ADMIN_KEY;
+    var adminKey = String(req.headers['x-admin-key'] || '').trim();
+    var validAdminKey = String(process.env.ADMIN_KEY || '').trim();
 
     if (p === '/api/admin/submissions') {
+      if (!validAdminKey) return res.status(500).json({error: 'ADMIN_KEY not configured on server'});
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var r = await supabase.from('submissions').select('*, users(*), tasks(*)').order('created_at', {ascending: false});
       return res.status(200).json({submissions: r.data || []});
