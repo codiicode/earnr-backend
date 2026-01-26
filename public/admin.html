@@ -601,9 +601,23 @@
                 // Check if it actually updated in the list
                 const updated = allSubmissions.find(s => s.id === id);
                 if (updated && updated.status !== 'APPROVED') {
-                    alert('ERROR: Approval did not persist!\nServer said success but database still shows: ' + updated.status);
+                    let debugMsg = 'ERROR: Approval did not persist!\nServer said success but reload shows: ' + updated.status;
+                    if (data.debug) {
+                        debugMsg += '\n\n--- DEBUG INFO ---';
+                        debugMsg += '\nKey Role: ' + data.debug.keyRole;
+                        debugMsg += '\nIs Service Key: ' + data.debug.isServiceKey;
+                        debugMsg += '\nUpdate returned: ' + data.debug.updateReturnedStatus;
+                        debugMsg += '\nVerify (100ms): ' + data.debug.verifyStatus;
+                        debugMsg += '\nFinal (500ms): ' + data.debug.finalCheckStatus;
+                    }
+                    alert(debugMsg);
                 } else {
-                    alert('Submission approved successfully!\nNew status: APPROVED');
+                    let successMsg = 'Submission approved successfully!';
+                    if (data.debug) {
+                        successMsg += '\n\nKey Role: ' + data.debug.keyRole;
+                        successMsg += '\nFinal Status: ' + data.debug.finalCheckStatus;
+                    }
+                    alert(successMsg);
                 }
 
             } catch (err) {

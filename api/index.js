@@ -363,7 +363,23 @@ module.exports = async function(req, res) {
         console.error('APPROVE: Error adding activity (non-critical):', e);
       }
 
-      return res.status(200).json({success: true, submission: verifyResult.data});
+      // Do a FINAL check after all operations, with 500ms delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      var finalCheck = await supabase.from('submissions').select('id, status').eq('id', subId).single();
+      console.log('APPROVE: Final check after 500ms:', finalCheck.data?.status);
+
+      return res.status(200).json({
+        success: true,
+        submission: verifyResult.data,
+        debug: {
+          keyRole: KEY_ROLE,
+          isServiceKey: IS_SERVICE_KEY,
+          updateReturnedStatus: updateResult.data[0]?.status,
+          verifyStatus: verifyResult.data?.status,
+          finalCheckStatus: finalCheck.data?.status,
+          submissionId: subId
+        }
+      });
     }
 
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/reject$/) && req.method === 'POST') {
