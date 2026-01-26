@@ -129,7 +129,7 @@ module.exports = async function(req, res) {
       });
     }
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
-    if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true); return res.status(200).json({tasks: r.data || []}); }
+    if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true).order('created_at', {ascending: false}); return res.status(200).json({tasks: r.data || []}); }
     if (p === '/api/leaderboard') { var r = await supabase.from('users').select('*').order('total_earned', {ascending: false}).limit(20); return res.status(200).json({leaderboard: r.data || []}); }
     if (p === '/api/earnrs' || p === '/api/hunters') {
       var r = await supabase.from('users').select('*').order('created_at', {ascending: false});
@@ -216,6 +216,33 @@ module.exports = async function(req, res) {
       var data = JSON.parse(body);
       if (!data.task_id || !data.proof_url) return res.status(400).json({error: 'Missing task_id or proof_url'});
 
+      // Get the task to check requirements
+      var taskResult = await supabase.from('tasks').select('*').eq('id', data.task_id).single();
+      if (!taskResult.data) {
+        return res.status(404).json({error: 'Task not found'});
+      }
+      var task = taskResult.data;
+
+      // Check if task is active
+      if (!task.is_active) {
+        return res.status(400).json({error: 'This task is no longer active'});
+      }
+
+      // Check if slots are available
+      if (task.slots_filled >= task.slots_total) {
+        return res.status(400).json({error: 'No slots available for this task'});
+      }
+
+      // Check minimum followers requirement
+      if (task.min_followers && task.min_followers > 0) {
+        var userFollowers = user.followers_count || 0;
+        if (userFollowers < task.min_followers) {
+          return res.status(400).json({
+            error: 'You need at least ' + task.min_followers.toLocaleString() + ' followers to complete this task. You have ' + userFollowers.toLocaleString() + ' followers.'
+          });
+        }
+      }
+
       // Check if user already submitted this task
       var existing = await supabase.from('submissions').select('id').eq('user_id', user.id).eq('task_id', data.task_id);
       if (existing.data && existing.data.length > 0) {
@@ -234,6 +261,9 @@ module.exports = async function(req, res) {
         console.error('Submission insert error:', r.error);
         return res.status(500).json({error: 'Failed to save submission: ' + r.error.message});
       }
+
+      // Increment slots_filled
+      await supabase.from('tasks').update({slots_filled: task.slots_filled + 1}).eq('id', data.task_id);
 
       return res.status(200).json({submission: r.data});
     }
@@ -254,6 +284,89 @@ module.exports = async function(req, res) {
           isServiceKey: IS_SERVICE_KEY
         }
       });
+    }
+
+    // Admin Tasks API - List all tasks
+    if (p === '/api/admin/tasks' && req.method === 'GET') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var r = await supabase.from('tasks').select('*').order('created_at', {ascending: false});
+      return res.status(200).json({tasks: r.data || []});
+    }
+
+    // Admin Tasks API - Create task
+    if (p === '/api/admin/tasks' && req.method === 'POST') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var body = ''; for await (var chunk of req) { body += chunk; }
+      var data = JSON.parse(body);
+
+      if (!data.title || !data.reward) {
+        return res.status(400).json({error: 'Title and reward are required'});
+      }
+
+      var taskData = {
+        title: data.title,
+        description: data.description || '',
+        reward: parseFloat(data.reward) || 0,
+        task_url: data.task_url || null,
+        category: data.category || 'SOCIAL',
+        difficulty: data.difficulty || 'EASY',
+        slots_total: parseInt(data.slots_total) || 100,
+        slots_filled: 0,
+        min_followers: parseInt(data.min_followers) || 0,
+        is_active: data.is_active !== false
+      };
+
+      var r = await supabase.from('tasks').insert(taskData).select().single();
+      if (r.error) {
+        console.error('Task create error:', r.error);
+        return res.status(500).json({error: 'Failed to create task: ' + r.error.message});
+      }
+      return res.status(200).json({success: true, task: r.data});
+    }
+
+    // Admin Tasks API - Update task
+    if (p.match(/^\/api\/admin\/tasks\/[^/]+$/) && req.method === 'PUT') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var taskId = p.split('/')[4];
+      var body = ''; for await (var chunk of req) { body += chunk; }
+      var data = JSON.parse(body);
+
+      var updateData = {};
+      if (data.title !== undefined) updateData.title = data.title;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.reward !== undefined) updateData.reward = parseFloat(data.reward) || 0;
+      if (data.task_url !== undefined) updateData.task_url = data.task_url || null;
+      if (data.category !== undefined) updateData.category = data.category;
+      if (data.difficulty !== undefined) updateData.difficulty = data.difficulty;
+      if (data.slots_total !== undefined) updateData.slots_total = parseInt(data.slots_total) || 100;
+      if (data.min_followers !== undefined) updateData.min_followers = parseInt(data.min_followers) || 0;
+      if (data.is_active !== undefined) updateData.is_active = data.is_active;
+
+      var r = await supabase.from('tasks').update(updateData).eq('id', taskId).select().single();
+      if (r.error) {
+        console.error('Task update error:', r.error);
+        return res.status(500).json({error: 'Failed to update task: ' + r.error.message});
+      }
+      return res.status(200).json({success: true, task: r.data});
+    }
+
+    // Admin Tasks API - Delete task
+    if (p.match(/^\/api\/admin\/tasks\/[^/]+$/) && req.method === 'DELETE') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+      var taskId = p.split('/')[4];
+
+      // Check if task has submissions
+      var subs = await supabase.from('submissions').select('id', {count: 'exact', head: true}).eq('task_id', taskId);
+      if (subs.count > 0) {
+        return res.status(400).json({error: 'Cannot delete task with existing submissions. Deactivate it instead.'});
+      }
+
+      var r = await supabase.from('tasks').delete().eq('id', taskId);
+      if (r.error) {
+        console.error('Task delete error:', r.error);
+        return res.status(500).json({error: 'Failed to delete task: ' + r.error.message});
+      }
+      return res.status(200).json({success: true});
     }
 
     // Debug endpoint to check database connection and key type
