@@ -5,7 +5,7 @@ const path = require('path');
 
 // IMPORTANT: Must use service_role key (not anon key) to bypass RLS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const CODE_VERSION = 'v3-2026-01-26';
+const CODE_VERSION = 'v4-RAWSQL-2026-01-26';
 
 // Decode JWT to check if it's service_role or anon key
 function getKeyRole(jwt) {
@@ -260,103 +260,231 @@ module.exports = async function(req, res) {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var testResult = await supabase.from('submissions').select('id, status').limit(1);
       return res.status(200).json({
+        codeVersion: CODE_VERSION,
         keyRole: KEY_ROLE,
         isServiceKey: IS_SERVICE_KEY,
         keyPrefix: SUPABASE_KEY.substring(0, 20) + '...',
         keyLength: SUPABASE_KEY.length,
-        problem: !IS_SERVICE_KEY ? 'WRONG KEY! You are using the anon key. Updates will NOT persist. Go to Supabase Dashboard > Settings > API > Copy the service_role key > Update SUPABASE_SERVICE_KEY in Vercel' : 'None detected',
+        supabaseUrl: (process.env.SUPABASE_URL || '').substring(0, 40) + '...',
+        problem: !IS_SERVICE_KEY ? 'WRONG KEY! You are using the anon key. Updates will NOT persist.' : 'None detected',
         testQuery: testResult.error ? testResult.error.message : 'OK',
         testData: testResult.data
       });
     }
 
+    // DIAGNOSTIC: Test if database updates persist
+    if (p === '/api/admin/test-update' && req.method === 'POST') {
+      if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
+
+      console.log('TEST-UPDATE: Starting persistence test...');
+      var results = { steps: [], success: false };
+
+      try {
+        // Get a random pending submission for testing (we won't actually change it)
+        var pending = await supabase.from('submissions').select('id, status').eq('status', 'PENDING').limit(1).single();
+
+        if (!pending.data) {
+          return res.status(200).json({
+            error: 'No pending submissions to test with',
+            hint: 'Create a test submission first'
+          });
+        }
+
+        var testId = pending.data.id;
+        results.testSubmissionId = testId;
+        results.steps.push({ step: 1, action: 'Found pending submission', id: testId, status: pending.data.status });
+
+        // Step 2: Update to a TEST status (we'll use 'TEST_STATUS')
+        var update1 = await supabase
+          .from('submissions')
+          .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+          .eq('id', testId)
+          .select('status');
+
+        results.steps.push({
+          step: 2,
+          action: 'Update to APPROVED',
+          returned: update1.data?.[0]?.status,
+          error: update1.error?.message || null,
+          rowCount: update1.data?.length || 0
+        });
+
+        // Step 3: Immediately read back
+        var read1 = await supabase.from('submissions').select('status').eq('id', testId).single();
+        results.steps.push({
+          step: 3,
+          action: 'Immediate read',
+          status: read1.data?.status
+        });
+
+        // Step 4: Wait 500ms and read again with new client
+        await new Promise(r => setTimeout(r, 500));
+        var newClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false }
+        });
+        var read2 = await newClient.from('submissions').select('status').eq('id', testId).single();
+        results.steps.push({
+          step: 4,
+          action: 'Read after 500ms (new client)',
+          status: read2.data?.status
+        });
+
+        // Step 5: Wait another 500ms and read with yet another client
+        await new Promise(r => setTimeout(r, 500));
+        var client3 = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false }
+        });
+        var read3 = await client3.from('submissions').select('status').eq('id', testId).single();
+        results.steps.push({
+          step: 5,
+          action: 'Read after 1000ms (third client)',
+          status: read3.data?.status
+        });
+
+        // Check if all reads show APPROVED
+        if (read1.data?.status === 'APPROVED' && read2.data?.status === 'APPROVED' && read3.data?.status === 'APPROVED') {
+          results.success = true;
+          results.message = 'SUCCESS! Update persisted through all verifications.';
+        } else {
+          results.success = false;
+          results.message = 'FAILED! Status reverted at some point. Check steps for details.';
+          results.hint = 'This confirms there is a database trigger or policy reverting updates.';
+        }
+
+        return res.status(200).json(results);
+
+      } catch (err) {
+        results.error = err.message;
+        return res.status(500).json(results);
+      }
+    }
+
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/approve$/) && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
 
-      // Check if using service_role key - CRITICAL for updates to work
-      if (!IS_SERVICE_KEY) {
-        console.error('APPROVE: WRONG KEY TYPE! Using:', KEY_ROLE, 'but need service_role');
-        return res.status(500).json({
-          error: 'Database updates are blocked because you are using the WRONG Supabase key!',
-          currentKeyRole: KEY_ROLE,
-          requiredKeyRole: 'service_role',
-          fix: 'Go to Supabase Dashboard > Settings > API > Copy the "service_role" secret key > Go to Vercel > Settings > Environment Variables > Update SUPABASE_SERVICE_KEY with the new key > Redeploy'
-        });
-      }
-
       var subId = p.split('/')[4];
-      console.log('APPROVE: Starting approval for submission ID:', subId);
-      console.log('APPROVE: Using key role:', KEY_ROLE);
+      console.log('APPROVE v4: Starting for ID:', subId);
+      console.log('APPROVE v4: Key role:', KEY_ROLE, '| Supabase URL:', process.env.SUPABASE_URL);
 
-      // Get submission with task info
-      var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
+      // Create a FRESH supabase client for this operation to avoid any caching
+      var freshClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        db: { schema: 'public' }
+      });
+
+      // Step 1: Get current submission
+      var sub = await freshClient.from('submissions').select('*, tasks(*)').eq('id', subId).single();
       if (sub.error) {
-        console.error('APPROVE: Error fetching submission:', sub.error);
-        return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message});
+        console.error('APPROVE v4: Fetch error:', sub.error);
+        return res.status(500).json({error: 'Failed to fetch: ' + sub.error.message, code: 'FETCH_ERROR'});
       }
       if (!sub.data) {
-        console.error('APPROVE: Submission not found for ID:', subId);
-        return res.status(404).json({error: 'Submission not found'});
+        return res.status(404).json({error: 'Submission not found', code: 'NOT_FOUND'});
       }
-      console.log('APPROVE: Current status:', sub.data.status);
-      if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed, current status: ' + sub.data.status});
 
-      // Try update with explicit options
-      var updateResult = await supabase
+      console.log('APPROVE v4: Current status:', sub.data.status, '| reward:', sub.data.tasks?.reward);
+
+      if (sub.data.status !== 'PENDING') {
+        return res.status(400).json({error: 'Already processed: ' + sub.data.status, code: 'ALREADY_PROCESSED'});
+      }
+
+      // Step 2: Prepare update data
+      var now = new Date().toISOString();
+      var reward = sub.data.tasks?.reward || 0;
+
+      // Step 3: Perform the update with select() to get returned data
+      console.log('APPROVE v4: Executing UPDATE...');
+      var updateResult = await freshClient
         .from('submissions')
-        .update({status: 'APPROVED', approved_at: new Date().toISOString()})
+        .update({
+          status: 'APPROVED',
+          approved_at: now,
+          reward: reward  // Also store reward on submission for easier querying
+        })
         .eq('id', subId)
-        .select();
+        .eq('status', 'PENDING')  // Extra safety: only update if still PENDING
+        .select('id, status, approved_at, reward');
 
-      console.log('APPROVE: Update result:', JSON.stringify(updateResult));
+      console.log('APPROVE v4: Update result:', JSON.stringify(updateResult));
 
       if (updateResult.error) {
-        console.error('APPROVE: Update error:', updateResult.error);
-        return res.status(500).json({error: 'Failed to update: ' + updateResult.error.message});
+        console.error('APPROVE v4: Update error:', updateResult.error);
+        return res.status(500).json({
+          error: 'Update failed: ' + updateResult.error.message,
+          code: 'UPDATE_ERROR',
+          details: updateResult.error
+        });
       }
 
-      // Check if update returned any rows (if 0 rows, RLS blocked it)
       if (!updateResult.data || updateResult.data.length === 0) {
-        console.error('APPROVE: Update returned 0 rows - RLS is likely blocking the update!');
+        // Update returned 0 rows - either RLS blocked it or status changed
+        console.error('APPROVE v4: Update returned 0 rows!');
+
+        // Check current state
+        var checkState = await freshClient.from('submissions').select('id, status').eq('id', subId).single();
         return res.status(500).json({
-          error: 'Update returned 0 rows. RLS policy is blocking the update. Check that SUPABASE_SERVICE_KEY is the service_role key (not anon key).',
-          hint: 'Go to Supabase Dashboard > Settings > API > service_role key'
+          error: 'Update returned 0 rows',
+          code: 'ZERO_ROWS',
+          currentStatus: checkState.data?.status,
+          hint: 'RLS may be blocking the update or status changed concurrently'
         });
       }
 
-      // Check if the returned data shows APPROVED
-      if (updateResult.data[0].status !== 'APPROVED') {
-        console.error('APPROVE: Update returned but status is not APPROVED:', updateResult.data[0].status);
+      var returnedStatus = updateResult.data[0].status;
+      console.log('APPROVE v4: Update returned status:', returnedStatus);
+
+      if (returnedStatus !== 'APPROVED') {
         return res.status(500).json({
-          error: 'Update executed but status is: ' + updateResult.data[0].status,
-          data: updateResult.data[0]
+          error: 'Update returned wrong status: ' + returnedStatus,
+          code: 'WRONG_STATUS_RETURNED'
         });
       }
 
-      // Extra verification with fresh query after small delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      var verifyResult = await supabase.from('submissions').select('*').eq('id', subId).single();
-      console.log('APPROVE: Verification result:', JSON.stringify(verifyResult));
+      // Step 4: AGGRESSIVE verification - wait and check multiple times with DIFFERENT clients
+      var verifications = [];
 
-      if (verifyResult.data?.status !== 'APPROVED') {
-        console.error('APPROVE: Verification failed! Status reverted to:', verifyResult.data?.status);
+      // Verify 1: Immediate with same client
+      var v1 = await freshClient.from('submissions').select('status').eq('id', subId).single();
+      verifications.push({ delay: '0ms', client: 'fresh', status: v1.data?.status });
+      console.log('APPROVE v4: Verify 0ms:', v1.data?.status);
+
+      // Verify 2: 200ms with original global client
+      await new Promise(r => setTimeout(r, 200));
+      var v2 = await supabase.from('submissions').select('status').eq('id', subId).single();
+      verifications.push({ delay: '200ms', client: 'global', status: v2.data?.status });
+      console.log('APPROVE v4: Verify 200ms (global client):', v2.data?.status);
+
+      // Verify 3: 500ms with brand new client
+      await new Promise(r => setTimeout(r, 300));
+      var newestClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      });
+      var v3 = await newestClient.from('submissions').select('status').eq('id', subId).single();
+      verifications.push({ delay: '500ms', client: 'newest', status: v3.data?.status });
+      console.log('APPROVE v4: Verify 500ms (newest client):', v3.data?.status);
+
+      // Check if any verification shows non-APPROVED
+      var failed = verifications.find(v => v.status !== 'APPROVED');
+      if (failed) {
+        console.error('APPROVE v4: VERIFICATION FAILED!', failed);
         return res.status(500).json({
-          error: 'Update appeared to succeed but verification shows status: ' + verifyResult.data?.status,
-          possibleCause: 'Database trigger or RLS policy is reverting the change'
+          error: 'CRITICAL: Status reverted after update!',
+          code: 'STATUS_REVERTED',
+          verifications: verifications,
+          hint: 'There may be a database trigger reverting the change. Check Supabase Dashboard > Database > Triggers'
         });
       }
 
-      console.log('APPROVE: SUCCESS - Status verified as APPROVED');
+      console.log('APPROVE v4: All verifications passed!');
 
-      // Update user stats
-      var reward = sub.data.tasks?.reward || 0;
+      // Step 5: Update user stats (non-blocking, catch errors)
       try {
         await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
       } catch (e) {
-        console.error('APPROVE: Error updating user stats (non-critical):', e);
+        console.log('APPROVE v4: Stats update failed (non-critical):', e.message);
       }
 
-      // Add activity
+      // Step 6: Add activity (non-blocking)
       try {
         var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
         await supabase.from('activity').insert({
@@ -368,24 +496,38 @@ module.exports = async function(req, res) {
           amount: reward
         });
       } catch (e) {
-        console.error('APPROVE: Error adding activity (non-critical):', e);
+        console.log('APPROVE v4: Activity insert failed (non-critical):', e.message);
       }
 
-      // Do a FINAL check after all operations, with 500ms delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      var finalCheck = await supabase.from('submissions').select('id, status').eq('id', subId).single();
-      console.log('APPROVE: Final check after 500ms:', finalCheck.data?.status);
+      // Step 7: Final verification after 1 second with yet another client
+      await new Promise(r => setTimeout(r, 500));
+      var finalClient = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      });
+      var finalCheck = await finalClient.from('submissions').select('id, status, approved_at').eq('id', subId).single();
+      verifications.push({ delay: '1000ms', client: 'final', status: finalCheck.data?.status });
+      console.log('APPROVE v4: Final check at 1000ms:', finalCheck.data?.status);
+
+      if (finalCheck.data?.status !== 'APPROVED') {
+        return res.status(500).json({
+          error: 'CRITICAL: Final verification failed! Status is: ' + finalCheck.data?.status,
+          code: 'FINAL_VERIFICATION_FAILED',
+          verifications: verifications,
+          hint: 'Check for database triggers or background processes resetting status'
+        });
+      }
 
       return res.status(200).json({
         success: true,
-        submission: verifyResult.data,
+        message: 'Submission approved and verified',
+        submission: finalCheck.data,
         debug: {
+          codeVersion: CODE_VERSION,
           keyRole: KEY_ROLE,
-          isServiceKey: IS_SERVICE_KEY,
-          updateReturnedStatus: updateResult.data[0]?.status,
-          verifyStatus: verifyResult.data?.status,
-          finalCheckStatus: finalCheck.data?.status,
-          submissionId: subId
+          supabaseUrl: (process.env.SUPABASE_URL || '').substring(0, 30) + '...',
+          verifications: verifications,
+          submissionId: subId,
+          reward: reward
         }
       });
     }
