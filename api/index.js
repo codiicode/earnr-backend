@@ -226,28 +226,57 @@ module.exports = async function(req, res) {
 
       // Get submission with task info
       var sub = await supabase.from('submissions').select('*, tasks(*)').eq('id', subId).single();
+      if (sub.error) {
+        console.error('Error fetching submission:', sub.error);
+        return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message});
+      }
       if (!sub.data) return res.status(404).json({error: 'Submission not found'});
       if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
 
-      // Update submission status
-      await supabase.from('submissions').update({status: 'APPROVED', approved_at: new Date().toISOString()}).eq('id', subId);
+      // Update submission status with error checking
+      var updateResult = await supabase
+        .from('submissions')
+        .update({status: 'APPROVED', approved_at: new Date().toISOString()})
+        .eq('id', subId)
+        .select()
+        .single();
 
-      // Update user stats
+      if (updateResult.error) {
+        console.error('Error updating submission:', updateResult.error);
+        return res.status(500).json({error: 'Failed to update submission: ' + updateResult.error.message});
+      }
+
+      if (!updateResult.data || updateResult.data.status !== 'APPROVED') {
+        console.error('Update did not apply. Result:', updateResult);
+        return res.status(500).json({error: 'Update failed to apply'});
+      }
+
+      // Update user stats (ignore errors, non-critical)
       var reward = sub.data.tasks?.reward || 0;
-      await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
+      try {
+        await supabase.rpc('increment_user_stats', {user_id: sub.data.user_id, earned: reward, tasks: 1});
+      } catch (e) {
+        console.error('Error updating user stats:', e);
+        // Continue anyway - the approval is the critical part
+      }
 
-      // Add activity
-      var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
-      await supabase.from('activity').insert({
-        user_id: sub.data.user_id,
-        username: userInfo.data?.username,
-        avatar_url: userInfo.data?.avatar_url,
-        type: 'TASK_COMPLETED',
-        task_name: sub.data.tasks?.title,
-        amount: reward
-      });
+      // Add activity (ignore errors, non-critical)
+      try {
+        var userInfo = await supabase.from('users').select('username, avatar_url').eq('id', sub.data.user_id).single();
+        await supabase.from('activity').insert({
+          user_id: sub.data.user_id,
+          username: userInfo.data?.username,
+          avatar_url: userInfo.data?.avatar_url,
+          type: 'TASK_COMPLETED',
+          task_name: sub.data.tasks?.title,
+          amount: reward
+        });
+      } catch (e) {
+        console.error('Error adding activity:', e);
+        // Continue anyway
+      }
 
-      return res.status(200).json({success: true});
+      return res.status(200).json({success: true, submission: updateResult.data});
     }
 
     if (p.match(/^\/api\/admin\/submissions\/[^/]+\/reject$/) && req.method === 'POST') {
@@ -255,11 +284,26 @@ module.exports = async function(req, res) {
       var subId = p.split('/')[4];
 
       var sub = await supabase.from('submissions').select('*').eq('id', subId).single();
+      if (sub.error) {
+        console.error('Error fetching submission:', sub.error);
+        return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message});
+      }
       if (!sub.data) return res.status(404).json({error: 'Submission not found'});
       if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed'});
 
-      await supabase.from('submissions').update({status: 'REJECTED', rejected_at: new Date().toISOString()}).eq('id', subId);
-      return res.status(200).json({success: true});
+      var updateResult = await supabase
+        .from('submissions')
+        .update({status: 'REJECTED', rejected_at: new Date().toISOString()})
+        .eq('id', subId)
+        .select()
+        .single();
+
+      if (updateResult.error) {
+        console.error('Error rejecting submission:', updateResult.error);
+        return res.status(500).json({error: 'Failed to reject submission: ' + updateResult.error.message});
+      }
+
+      return res.status(200).json({success: true, submission: updateResult.data});
     }
 
     // Serve admin page
