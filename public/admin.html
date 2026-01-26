@@ -164,6 +164,32 @@
             margin-bottom: 1rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-filters {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .task-filters .filter-btn {
+            font-family: inherit;
+            font-size: 0.6rem;
+            letter-spacing: 0.08em;
+            padding: 0.4rem 0.8rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--gray);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-filters .filter-btn:hover,
+        .task-filters .filter-btn.active {
+            border-color: var(--green);
+            color: var(--green);
         }
 
         .submissions-list {
@@ -689,7 +715,14 @@
                 </div>
             </div>
 
-            <div class="section-title">ALL TASKS</div>
+            <div class="section-title">
+                TASKS
+                <div class="task-filters">
+                    <button class="filter-btn active" onclick="filterTasks('ALL', this)">ALL</button>
+                    <button class="filter-btn" onclick="filterTasks('ACTIVE', this)">ACTIVE</button>
+                    <button class="filter-btn" onclick="filterTasks('INACTIVE', this)">DEACTIVATED</button>
+                </div>
+            </div>
             <div id="tasksList">
                 <div class="loading">Loading tasks...</div>
             </div>
@@ -701,6 +734,7 @@
         let allSubmissions = [];
         let allTasks = [];
         let currentFilter = 'PENDING';
+        let taskFilter = 'ALL';
         let editingTaskId = null;
 
         function showKeyWarning(keyRole) {
@@ -1113,6 +1147,13 @@
             document.getElementById('statTotalRewards').textContent = totalRewards.toLocaleString();
         }
 
+        function filterTasks(filter, btn) {
+            taskFilter = filter;
+            document.querySelectorAll('.task-filters .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderTasks();
+        }
+
         function renderTasks() {
             const container = document.getElementById('tasksList');
 
@@ -1121,7 +1162,19 @@
                 return;
             }
 
-            container.innerHTML = allTasks.map(task => `
+            let filteredTasks = allTasks;
+            if (taskFilter === 'ACTIVE') {
+                filteredTasks = allTasks.filter(t => t.is_active);
+            } else if (taskFilter === 'INACTIVE') {
+                filteredTasks = allTasks.filter(t => !t.is_active);
+            }
+
+            if (filteredTasks.length === 0) {
+                container.innerHTML = `<div class="empty-state">No ${taskFilter.toLowerCase()} tasks.</div>`;
+                return;
+            }
+
+            container.innerHTML = filteredTasks.map(task => `
                 <div class="task-card ${task.is_active ? '' : 'inactive'}" id="task-${task.id}">
                     <div class="task-info">
                         <h4>
