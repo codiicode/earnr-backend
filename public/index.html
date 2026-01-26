@@ -379,89 +379,63 @@
         .steps-container {
             display: flex;
             flex-direction: column;
+            align-items: center;
             gap: 0;
+            max-width: 500px;
+            margin: 0 auto;
         }
 
         .step-item {
-            display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 2rem;
-            padding: 2.5rem 0;
-            position: relative;
-            transition: all 0.4s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+            padding: 2rem;
+            width: 100%;
+            background: rgba(0, 255, 136, 0.02);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
         }
 
         .step-item:hover {
-            transform: translateX(10px);
+            background: rgba(0, 255, 136, 0.05);
+            border-color: var(--green);
         }
 
-        .step-item:hover .step-number {
-            text-shadow: 0 0 40px var(--green-glow);
+        .step-item:hover .step-icon {
+            background: var(--green);
+            color: var(--black);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
         }
 
         .step-item:hover .step-title {
             color: var(--green);
         }
 
-        .step-header {
+        .step-icon {
+            width: 48px;
+            height: 48px;
+            border: 1px solid var(--green);
             display: flex;
-            align-items: flex-start;
-            gap: 1.5rem;
-        }
-
-        .step-number {
-            font-family: 'Instrument Serif', serif;
-            font-size: 4rem;
-            font-style: italic;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
             color: var(--green);
-            line-height: 1;
-            min-width: 100px;
-            transition: all 0.4s ease;
-            opacity: 0.6;
+            transition: all 0.3s ease;
         }
 
-        .step-item:hover .step-number {
-            opacity: 1;
+        .step-icon svg {
+            width: 22px;
+            height: 22px;
         }
 
-        .step-line {
+        .step-content {
             flex: 1;
-            width: 1px;
-            background: linear-gradient(180deg, var(--green) 0%, var(--border) 100%);
-            min-height: 100%;
-            position: relative;
-        }
-
-        .step-line::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -4px;
-            width: 9px;
-            height: 9px;
-            background: var(--green);
-            border-radius: 50%;
-            box-shadow: 0 0 15px var(--green-glow);
-            animation: dotPulse 2s ease-in-out infinite;
-        }
-
-        @keyframes dotPulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.3); opacity: 0.7; }
-        }
-
-        .step-item:nth-child(2) .step-line::before { animation-delay: 0.5s; }
-        .step-item:nth-child(3) .step-line::before { animation-delay: 1s; }
-        .step-item:nth-child(4) .step-line::before { animation-delay: 1.5s; }
-
-        .step-line.last {
-            background: linear-gradient(180deg, var(--green) 0%, transparent 100%);
         }
 
         .step-title {
             font-size: 1.1rem;
             font-weight: 600;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             color: var(--white);
             transition: color 0.3s ease;
             text-transform: uppercase;
@@ -471,45 +445,64 @@
         .step-desc {
             font-size: 0.8rem;
             color: var(--gray-light);
-            line-height: 1.8;
-            max-width: 400px;
+            line-height: 1.7;
         }
 
+        .step-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 0;
+            color: var(--green);
+            opacity: 0.5;
+        }
+
+        .step-arrow svg {
+            width: 24px;
+            height: 24px;
+            animation: arrowBounce 1.5s ease-in-out infinite;
+        }
+
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(4px); opacity: 1; }
+        }
+
+        .step-arrow:nth-of-type(2) svg { animation-delay: 0.2s; }
+        .step-arrow:nth-of-type(3) svg { animation-delay: 0.4s; }
+
         @media (max-width: 768px) {
+            .steps-container {
+                max-width: 100%;
+            }
+
             .step-item {
-                grid-template-columns: 1fr;
-                gap: 0.5rem;
-                padding: 1.5rem 0;
+                padding: 1.25rem;
+                gap: 1rem;
             }
 
-            .step-header {
-                gap: 0.75rem;
-                align-items: center;
+            .step-icon {
+                width: 40px;
+                height: 40px;
             }
 
-            .step-number {
-                font-size: 1.8rem;
-                min-width: auto;
-                opacity: 0.8;
-            }
-
-            .step-line {
-                display: none;
+            .step-icon svg {
+                width: 18px;
+                height: 18px;
             }
 
             .step-title {
-                font-size: 1rem;
+                font-size: 0.95rem;
             }
 
             .step-desc {
                 font-size: 0.75rem;
                 line-height: 1.6;
-                max-width: 100%;
-                padding-left: 0;
             }
 
-            .step-item:hover {
-                transform: none;
+            .step-arrow svg {
+                width: 20px;
+                height: 20px;
             }
         }
 
@@ -767,39 +760,71 @@
 
         <div class="steps-container">
             <div class="step-item">
-                <div class="step-header">
-                    <span class="step-number">01</span>
-                    <div class="step-line"></div>
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z"/>
+                    </svg>
                 </div>
-                <h3 class="step-title">Connect X</h3>
-                <p class="step-desc">No wallet connect, simply sign in with your X account. Your X followers and engagement can help unlock premium tasks.</p>
+                <div class="step-content">
+                    <h3 class="step-title">Connect X</h3>
+                    <p class="step-desc">No wallet connect, simply sign in with your X account. Your X followers and engagement can help unlock premium tasks.</p>
+                </div>
+            </div>
+
+            <div class="step-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12l7 7 7-7"/>
+                </svg>
             </div>
 
             <div class="step-item">
-                <div class="step-header">
-                    <span class="step-number">02</span>
-                    <div class="step-line"></div>
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
                 </div>
-                <h3 class="step-title">Browse Tasks</h3>
-                <p class="step-desc">Find tasks that match your availability and interest. Quote tweets, like, share, short form content and much more.</p>
+                <div class="step-content">
+                    <h3 class="step-title">Browse Tasks</h3>
+                    <p class="step-desc">Find tasks that match your availability and interest. Quote tweets, like, share, short form content and much more.</p>
+                </div>
+            </div>
+
+            <div class="step-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12l7 7 7-7"/>
+                </svg>
             </div>
 
             <div class="step-item">
-                <div class="step-header">
-                    <span class="step-number">03</span>
-                    <div class="step-line"></div>
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 12l2 2 4-4"/>
+                        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
                 </div>
-                <h3 class="step-title">Submit Task</h3>
-                <p class="step-desc">Complete the task and submit proof. Our team reviews as soon as possible.</p>
+                <div class="step-content">
+                    <h3 class="step-title">Submit Proof</h3>
+                    <p class="step-desc">Complete the task and submit proof. Our team reviews submissions as soon as possible.</p>
+                </div>
+            </div>
+
+            <div class="step-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12l7 7 7-7"/>
+                </svg>
             </div>
 
             <div class="step-item">
-                <div class="step-header">
-                    <span class="step-number">04</span>
-                    <div class="step-line last"></div>
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                    </svg>
                 </div>
-                <h3 class="step-title">Earn</h3>
-                <p class="step-desc">Once reviewed, USDC will be sent directly to your Solana wallet. No minimums, instant payouts.</p>
+                <div class="step-content">
+                    <h3 class="step-title">Get Paid</h3>
+                    <p class="step-desc">Once approved, USDC is sent directly to your Solana wallet. No minimums, fast payouts.</p>
+                </div>
             </div>
         </div>
     </section>
