@@ -344,6 +344,16 @@
             height: 12px;
         }
 
+        .btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn.disabled:hover {
+            background: var(--green);
+            border-color: var(--green);
+        }
+
         /* Pages - FULL WIDTH */
         .page {
             display: none;
@@ -2077,6 +2087,8 @@ function showPopup(message, isError) {
         // TASKS
         // ============================================
 
+        let allAvailableTasks = [];
+
         async function loadTasks() {
             try {
                 const res = await fetch('/api/tasks');
@@ -2085,10 +2097,20 @@ function showPopup(message, isError) {
                 // Update task count badges
                 updateTaskCount(data.tasks?.length || 0);
 
+                // Store tasks for later reference
+                allAvailableTasks = data.tasks || [];
+
                 const container = document.querySelector('#tasks .tasks-list') || document.querySelector('#tasks .empty-state')?.parentElement;
 
-                if (data.tasks && data.tasks.length > 0) {
-                    const tasksHtml = data.tasks.map(task => `
+                if (allAvailableTasks.length > 0) {
+                    const userFollowers = currentUser?.followers_count || 0;
+
+                    const tasksHtml = allAvailableTasks.map(task => {
+                        const minFollowers = task.min_followers || 0;
+                        const meetsRequirement = minFollowers === 0 || userFollowers >= minFollowers;
+                        const slotsLeft = task.slots_total - (task.slots_filled || 0);
+
+                        return `
                         <div class="task-card" data-task-id="${task.id}">
                             <div class="task-reward">
                                 <div class="task-reward-value">${formatNumber(task.reward)}</div>
@@ -2100,20 +2122,22 @@ function showPopup(message, isError) {
                                 <div class="task-tags">
                                     <span class="task-tag">${task.category}</span>
                                     <span class="task-tag ${task.difficulty.toLowerCase()}">${task.difficulty}</span>
+                                    ${minFollowers > 0 ? `<span class="task-tag" style="background:rgba(255,165,2,0.08);color:var(--yellow);border:1px solid rgba(255,165,2,0.2);">${minFollowers.toLocaleString()}+ FOLLOWERS</span>` : ''}
                                 </div>
                             </div>
                             <div class="task-slots">
                                 <div class="slots-bar">
-                                    <div class="slots-bar-fill" style="width:${(task.slots_filled / task.slots_total) * 100}%"></div>
+                                    <div class="slots-bar-fill" style="width:${((task.slots_filled || 0) / task.slots_total) * 100}%"></div>
                                 </div>
-                                <div class="slots-text">${task.slots_total - task.slots_filled} of ${task.slots_total} slots left</div>
+                                <div class="slots-text">${slotsLeft} of ${task.slots_total} slots left</div>
+                                ${minFollowers > 0 && !meetsRequirement ? `<div style="font-size:0.6rem;color:var(--red);margin-top:0.3rem;">You need ${minFollowers.toLocaleString()} followers</div>` : ''}
                             </div>
                             <div class="task-action">
                                 ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
-                                <button class="btn btn-primary" onclick="openSubmitModal('${task.id}')">SUBMIT</button>
+                                <button class="btn btn-primary ${!meetsRequirement ? 'disabled' : ''}" onclick="openSubmitModal('${task.id}')" ${!meetsRequirement ? 'title="You don\'t meet the follower requirement"' : ''}>SUBMIT</button>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
 
                     container.innerHTML = `<div class="tasks-list">${tasksHtml}</div>`;
                 }
@@ -2151,6 +2175,17 @@ function showPopup(message, isError) {
                 showPopup('Please sign in with X first');
                 return;
             }
+
+            // Check follower requirement
+            const task = allAvailableTasks.find(t => t.id === taskId);
+            if (task && task.min_followers > 0) {
+                const userFollowers = currentUser.followers_count || 0;
+                if (userFollowers < task.min_followers) {
+                    showPopup(`This task requires at least ${task.min_followers.toLocaleString()} followers. You have ${userFollowers.toLocaleString()} followers.`, true);
+                    return;
+                }
+            }
+
             document.getElementById('submitTaskId').value = taskId;
             document.getElementById('submitProofUrl').value = '';
             document.getElementById('submitComment').value = '';

@@ -321,6 +321,208 @@
             color: var(--gray);
         }
 
+        /* Main Tabs */
+        .main-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .main-tab {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--gray);
+            padding: 1rem 2rem;
+            font-family: 'Geist Mono', monospace;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.1em;
+        }
+
+        .main-tab:hover {
+            color: var(--white);
+        }
+
+        .main-tab.active {
+            color: var(--green);
+            border-bottom-color: var(--green);
+        }
+
+        /* Task Form */
+        .task-form {
+            background: var(--black-light);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .task-form h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--gray);
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--black);
+            border: 1px solid var(--border);
+            color: var(--white);
+            font-family: 'Geist Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-select {
+            cursor: pointer;
+        }
+
+        .form-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .form-checkbox input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--green);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Task Cards */
+        .task-card {
+            background: var(--black-light);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .task-card.inactive {
+            opacity: 0.6;
+        }
+
+        .task-info h4 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .task-info p {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-bottom: 1rem;
+        }
+
+        .task-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            font-size: 0.7rem;
+        }
+
+        .task-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            color: var(--gray);
+        }
+
+        .task-meta-item .value {
+            color: var(--white);
+        }
+
+        .task-meta-item.reward .value {
+            color: var(--green);
+        }
+
+        .task-badge {
+            font-size: 0.55rem;
+            padding: 0.25rem 0.5rem;
+            letter-spacing: 0.1em;
+        }
+
+        .task-badge.active {
+            background: var(--green-dim);
+            color: var(--green);
+            border: 1px solid var(--green-border);
+        }
+
+        .task-badge.inactive {
+            background: rgba(255, 71, 87, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+
+        .task-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--gray);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--white);
+            color: var(--white);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 1rem;
@@ -366,43 +568,140 @@
 
     <!-- Main Panel -->
     <div class="panel" id="mainPanel">
-        <div class="stats-row">
-            <div class="stat-card">
-                <div class="stat-value" id="statPending">0</div>
-                <div class="stat-label">PENDING</div>
+        <!-- Main Tabs -->
+        <div class="main-tabs">
+            <button class="main-tab active" onclick="switchMainTab('submissions', this)">SUBMISSIONS</button>
+            <button class="main-tab" onclick="switchMainTab('tasks', this)">TASKS</button>
+        </div>
+
+        <!-- Submissions View -->
+        <div id="submissionsView">
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="statPending">0</div>
+                    <div class="stat-label">PENDING</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statApproved">0</div>
+                    <div class="stat-label">APPROVED</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statRejected">0</div>
+                    <div class="stat-label">REJECTED</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotalPaid">0</div>
+                    <div class="stat-label">USDC PAID</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value" id="statApproved">0</div>
-                <div class="stat-label">APPROVED</div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-status="PENDING" onclick="filterSubmissions('PENDING', this)">Pending</button>
+                <button class="tab-btn" data-status="APPROVED" onclick="filterSubmissions('APPROVED', this)">Approved</button>
+                <button class="tab-btn" data-status="REJECTED" onclick="filterSubmissions('REJECTED', this)">Rejected</button>
+                <button class="tab-btn" data-status="ALL" onclick="filterSubmissions('ALL', this)">All</button>
+                <button class="tab-btn" style="margin-left:auto;background:#333;" onclick="runDiagnostic()">Run Diagnostic</button>
             </div>
-            <div class="stat-card">
-                <div class="stat-value" id="statRejected">0</div>
-                <div class="stat-label">REJECTED</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="statTotalPaid">0</div>
-                <div class="stat-label">USDC PAID</div>
+
+            <div class="section-title">SUBMISSIONS</div>
+            <div class="submissions-list" id="submissionsList">
+                <div class="loading">Loading submissions...</div>
             </div>
         </div>
 
-        <div class="tabs">
-            <button class="tab-btn active" data-status="PENDING" onclick="filterSubmissions('PENDING', this)">Pending</button>
-            <button class="tab-btn" data-status="APPROVED" onclick="filterSubmissions('APPROVED', this)">Approved</button>
-            <button class="tab-btn" data-status="REJECTED" onclick="filterSubmissions('REJECTED', this)">Rejected</button>
-            <button class="tab-btn" data-status="ALL" onclick="filterSubmissions('ALL', this)">All</button>
-            <button class="tab-btn" style="margin-left:auto;background:#333;" onclick="runDiagnostic()">Run Diagnostic</button>
-        </div>
+        <!-- Tasks View -->
+        <div id="tasksView" class="hidden">
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="statActiveTasks">0</div>
+                    <div class="stat-label">ACTIVE TASKS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statInactiveTasks">0</div>
+                    <div class="stat-label">INACTIVE</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotalSlots">0</div>
+                    <div class="stat-label">TOTAL SLOTS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotalRewards">0</div>
+                    <div class="stat-label">TOTAL REWARDS</div>
+                </div>
+            </div>
 
-        <div class="section-title">SUBMISSIONS</div>
-        <div class="submissions-list" id="submissionsList">
-            <div class="loading">Loading submissions...</div>
+            <!-- Task Form -->
+            <div class="task-form" id="taskForm">
+                <h3>
+                    <span id="taskFormTitle">Create New Task</span>
+                    <button class="btn btn-small btn-outline" onclick="resetTaskForm()" id="cancelEditBtn" style="display:none;">CANCEL</button>
+                </h3>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label">TITLE *</label>
+                        <input type="text" class="form-input" id="taskTitle" placeholder="e.g., Retweet our launch announcement">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">DESCRIPTION</label>
+                        <textarea class="form-textarea" id="taskDescription" placeholder="Describe what users need to do..."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">TASK URL (link to tweet, video, etc)</label>
+                        <input type="url" class="form-input" id="taskUrl" placeholder="https://twitter.com/earnr_xyz/status/...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">REWARD (USDC) *</label>
+                        <input type="number" class="form-input" id="taskReward" placeholder="5" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CATEGORY</label>
+                        <select class="form-select" id="taskCategory">
+                            <option value="SOCIAL">SOCIAL</option>
+                            <option value="CONTENT">CONTENT</option>
+                            <option value="COMMUNITY">COMMUNITY</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">DIFFICULTY</label>
+                        <select class="form-select" id="taskDifficulty">
+                            <option value="EASY">EASY</option>
+                            <option value="MEDIUM">MEDIUM</option>
+                            <option value="HARD">HARD</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TOTAL SLOTS</label>
+                        <input type="number" class="form-input" id="taskSlots" placeholder="100" min="1" value="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">MIN FOLLOWERS REQUIRED</label>
+                        <input type="number" class="form-input" id="taskMinFollowers" placeholder="0 (no requirement)" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox">
+                            <input type="checkbox" id="taskActive" checked>
+                            <span>Active (visible to users)</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn" onclick="saveTask()" id="saveTaskBtn">CREATE TASK</button>
+                </div>
+            </div>
+
+            <div class="section-title">ALL TASKS</div>
+            <div id="tasksList">
+                <div class="loading">Loading tasks...</div>
+            </div>
         </div>
     </div>
 
     <script>
         let adminKey = localStorage.getItem('earnr_admin_key') || '';
         let allSubmissions = [];
+        let allTasks = [];
         let currentFilter = 'PENDING';
+        let editingTaskId = null;
 
         function showKeyWarning(keyRole) {
             // Create warning banner at top of page
@@ -761,6 +1060,270 @@
 
             } catch (err) {
                 alert('Diagnostic failed: ' + err.message);
+            }
+        }
+
+        // =====================================================
+        // TASK MANAGEMENT
+        // =====================================================
+
+        function switchMainTab(tab, btn) {
+            document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+
+            if (tab === 'submissions') {
+                document.getElementById('submissionsView').classList.remove('hidden');
+                document.getElementById('tasksView').classList.add('hidden');
+            } else if (tab === 'tasks') {
+                document.getElementById('submissionsView').classList.add('hidden');
+                document.getElementById('tasksView').classList.remove('hidden');
+                loadTasks();
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const res = await fetch('/api/admin/tasks', {
+                    headers: { 'X-Admin-Key': adminKey }
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    console.error('Failed to load tasks:', data.error);
+                    return;
+                }
+
+                allTasks = data.tasks || [];
+                updateTaskStats();
+                renderTasks();
+            } catch (err) {
+                console.error('Failed to load tasks:', err);
+            }
+        }
+
+        function updateTaskStats() {
+            const active = allTasks.filter(t => t.is_active).length;
+            const inactive = allTasks.filter(t => !t.is_active).length;
+            const totalSlots = allTasks.reduce((sum, t) => sum + (t.slots_total || 0), 0);
+            const totalRewards = allTasks.reduce((sum, t) => sum + (t.reward || 0), 0);
+
+            document.getElementById('statActiveTasks').textContent = active;
+            document.getElementById('statInactiveTasks').textContent = inactive;
+            document.getElementById('statTotalSlots').textContent = totalSlots.toLocaleString();
+            document.getElementById('statTotalRewards').textContent = totalRewards.toLocaleString();
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasksList');
+
+            if (allTasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">No tasks yet. Create your first task above.</div>';
+                return;
+            }
+
+            container.innerHTML = allTasks.map(task => `
+                <div class="task-card ${task.is_active ? '' : 'inactive'}" id="task-${task.id}">
+                    <div class="task-info">
+                        <h4>
+                            ${task.title}
+                            <span class="task-badge ${task.is_active ? 'active' : 'inactive'}">${task.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+                        </h4>
+                        <p>${task.description || 'No description'}</p>
+                        <div class="task-meta">
+                            <div class="task-meta-item reward">
+                                <span>Reward:</span>
+                                <span class="value">${task.reward} USDC</span>
+                            </div>
+                            <div class="task-meta-item">
+                                <span>Category:</span>
+                                <span class="value">${task.category}</span>
+                            </div>
+                            <div class="task-meta-item">
+                                <span>Difficulty:</span>
+                                <span class="value">${task.difficulty}</span>
+                            </div>
+                            <div class="task-meta-item">
+                                <span>Slots:</span>
+                                <span class="value">${task.slots_filled || 0}/${task.slots_total}</span>
+                            </div>
+                            ${task.min_followers > 0 ? `
+                            <div class="task-meta-item">
+                                <span>Min Followers:</span>
+                                <span class="value">${task.min_followers.toLocaleString()}</span>
+                            </div>
+                            ` : ''}
+                            ${task.task_url ? `
+                            <div class="task-meta-item">
+                                <span>URL:</span>
+                                <a href="${task.task_url}" target="_blank" class="value" style="color:var(--green);">View Task ↗</a>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn btn-small" onclick="editTask('${task.id}')">EDIT</button>
+                        <button class="btn btn-small btn-outline" onclick="toggleTaskActive('${task.id}', ${!task.is_active})">${task.is_active ? 'DEACTIVATE' : 'ACTIVATE'}</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteTask('${task.id}')">DELETE</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editTask(taskId) {
+            const task = allTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            editingTaskId = taskId;
+
+            document.getElementById('taskTitle').value = task.title || '';
+            document.getElementById('taskDescription').value = task.description || '';
+            document.getElementById('taskUrl').value = task.task_url || '';
+            document.getElementById('taskReward').value = task.reward || 0;
+            document.getElementById('taskCategory').value = task.category || 'SOCIAL';
+            document.getElementById('taskDifficulty').value = task.difficulty || 'EASY';
+            document.getElementById('taskSlots').value = task.slots_total || 100;
+            document.getElementById('taskMinFollowers').value = task.min_followers || 0;
+            document.getElementById('taskActive').checked = task.is_active;
+
+            document.getElementById('taskFormTitle').textContent = 'Edit Task';
+            document.getElementById('saveTaskBtn').textContent = 'UPDATE TASK';
+            document.getElementById('cancelEditBtn').style.display = 'inline-block';
+
+            // Scroll to form
+            document.getElementById('taskForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function resetTaskForm() {
+            editingTaskId = null;
+
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDescription').value = '';
+            document.getElementById('taskUrl').value = '';
+            document.getElementById('taskReward').value = '';
+            document.getElementById('taskCategory').value = 'SOCIAL';
+            document.getElementById('taskDifficulty').value = 'EASY';
+            document.getElementById('taskSlots').value = '100';
+            document.getElementById('taskMinFollowers').value = '0';
+            document.getElementById('taskActive').checked = true;
+
+            document.getElementById('taskFormTitle').textContent = 'Create New Task';
+            document.getElementById('saveTaskBtn').textContent = 'CREATE TASK';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+        }
+
+        async function saveTask() {
+            const title = document.getElementById('taskTitle').value.trim();
+            const reward = document.getElementById('taskReward').value;
+
+            if (!title) {
+                alert('Title is required');
+                return;
+            }
+            if (!reward || reward <= 0) {
+                alert('Reward must be greater than 0');
+                return;
+            }
+
+            const taskData = {
+                title: title,
+                description: document.getElementById('taskDescription').value.trim(),
+                task_url: document.getElementById('taskUrl').value.trim() || null,
+                reward: parseFloat(reward),
+                category: document.getElementById('taskCategory').value,
+                difficulty: document.getElementById('taskDifficulty').value,
+                slots_total: parseInt(document.getElementById('taskSlots').value) || 100,
+                min_followers: parseInt(document.getElementById('taskMinFollowers').value) || 0,
+                is_active: document.getElementById('taskActive').checked
+            };
+
+            try {
+                let res;
+                if (editingTaskId) {
+                    // Update
+                    res = await fetch(`/api/admin/tasks/${editingTaskId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'X-Admin-Key': adminKey,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(taskData)
+                    });
+                } else {
+                    // Create
+                    res = await fetch('/api/admin/tasks', {
+                        method: 'POST',
+                        headers: {
+                            'X-Admin-Key': adminKey,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(taskData)
+                    });
+                }
+
+                const data = await res.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
+                resetTaskForm();
+                await loadTasks();
+
+            } catch (err) {
+                alert('Failed to save task: ' + err.message);
+            }
+        }
+
+        async function toggleTaskActive(taskId, newState) {
+            try {
+                const res = await fetch(`/api/admin/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'X-Admin-Key': adminKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ is_active: newState })
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                await loadTasks();
+
+            } catch (err) {
+                alert('Failed to update task: ' + err.message);
+            }
+        }
+
+        async function deleteTask(taskId) {
+            if (!confirm('Are you sure you want to delete this task? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/tasks/${taskId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Admin-Key': adminKey }
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                alert('Task deleted successfully!');
+                await loadTasks();
+
+            } catch (err) {
+                alert('Failed to delete task: ' + err.message);
             }
         }
     </script>
