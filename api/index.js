@@ -116,8 +116,9 @@ module.exports = async function(req, res) {
       var fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString();
       var onlineRes = await supabase.from('users').select('*', {count: 'exact', head: true}).gte('last_seen', fiveMinAgo);
       var tasksRes = await supabase.from('tasks').select('*', {count: 'exact', head: true}).eq('is_active', true);
-      var approvedRes = await supabase.from('submissions').select('reward').eq('status', 'APPROVED');
-      var totalPaid = (approvedRes.data || []).reduce((sum, s) => sum + (s.reward || 0), 0);
+      // Get approved submissions with task rewards
+      var approvedRes = await supabase.from('submissions').select('*, tasks(reward)').eq('status', 'APPROVED');
+      var totalPaid = (approvedRes.data || []).reduce((sum, s) => sum + (s.tasks?.reward || 0), 0);
       var completedCount = (approvedRes.data || []).length;
       return res.status(200).json({
         totalUsers: usersRes.count || 0,
