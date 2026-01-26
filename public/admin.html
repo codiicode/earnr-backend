@@ -561,29 +561,50 @@
         async function approveSubmission(id) {
             if (!confirm('Approve this submission? The user will receive the reward.')) return;
 
-            // Show loading state
             const card = document.getElementById(`submission-${id}`);
             if (card) card.style.opacity = '0.5';
 
             try {
+                console.log('Approving submission:', id);
                 const res = await fetch(`/api/admin/submissions/${id}/approve`, {
                     method: 'POST',
                     headers: { 'X-Admin-Key': adminKey }
                 });
 
                 const data = await res.json();
+                console.log('Approve response:', data);
+
                 if (data.error) {
-                    alert('Error approving submission: ' + data.error);
+                    let errorMsg = 'Error: ' + data.error;
+                    if (data.debug) {
+                        errorMsg += '\n\nDebug info:\n' + JSON.stringify(data.debug, null, 2);
+                    }
+                    alert(errorMsg);
                     if (card) card.style.opacity = '1';
                     return;
                 }
 
-                // Reload submissions from server to verify the update
+                // Verify the returned submission has APPROVED status
+                if (data.submission && data.submission.status !== 'APPROVED') {
+                    alert('WARNING: Server returned success but status is: ' + data.submission.status);
+                    if (card) card.style.opacity = '1';
+                    return;
+                }
+
+                // Reload and verify
                 await reloadSubmissions();
-                alert('Submission approved successfully!');
+
+                // Check if it actually updated in the list
+                const updated = allSubmissions.find(s => s.id === id);
+                if (updated && updated.status !== 'APPROVED') {
+                    alert('ERROR: Approval did not persist!\nServer said success but database still shows: ' + updated.status);
+                } else {
+                    alert('Submission approved successfully!\nNew status: APPROVED');
+                }
 
             } catch (err) {
-                alert('Failed to approve submission: ' + err.message);
+                console.error('Approve error:', err);
+                alert('Failed to approve: ' + err.message);
                 if (card) card.style.opacity = '1';
             }
         }
@@ -591,39 +612,49 @@
         async function rejectSubmission(id) {
             if (!confirm('Reject this submission?')) return;
 
-            // Show loading state
             const card = document.getElementById(`submission-${id}`);
             if (card) card.style.opacity = '0.5';
 
             try {
+                console.log('Rejecting submission:', id);
                 const res = await fetch(`/api/admin/submissions/${id}/reject`, {
                     method: 'POST',
                     headers: { 'X-Admin-Key': adminKey }
                 });
 
                 const data = await res.json();
+                console.log('Reject response:', data);
+
                 if (data.error) {
-                    alert('Error rejecting submission: ' + data.error);
+                    alert('Error: ' + data.error);
                     if (card) card.style.opacity = '1';
                     return;
                 }
 
-                // Reload submissions from server to verify the update
                 await reloadSubmissions();
-                alert('Submission rejected successfully!');
+
+                const updated = allSubmissions.find(s => s.id === id);
+                if (updated && updated.status !== 'REJECTED') {
+                    alert('ERROR: Rejection did not persist!\nDatabase still shows: ' + updated.status);
+                } else {
+                    alert('Submission rejected successfully!');
+                }
 
             } catch (err) {
-                alert('Failed to reject submission: ' + err.message);
+                console.error('Reject error:', err);
+                alert('Failed to reject: ' + err.message);
                 if (card) card.style.opacity = '1';
             }
         }
 
         async function reloadSubmissions() {
             try {
+                console.log('Reloading submissions from server...');
                 const res = await fetch('/api/admin/submissions', {
                     headers: { 'X-Admin-Key': adminKey }
                 });
                 const data = await res.json();
+                console.log('Loaded submissions:', data.submissions?.length || 0);
                 if (data.submissions) {
                     allSubmissions = data.submissions;
                     updateStats();
