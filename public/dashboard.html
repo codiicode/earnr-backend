@@ -1802,13 +1802,13 @@
                 <div class="stats-grid" id="profile-stats">
                     <div class="stat-card">
                         <div class="stat-label">Total Earned</div>
-                        <div class="stat-value">0</div>
-                        <div class="stat-change">USDC</div>
+                        <div class="stat-value">$0</div>
+                        <div class="stat-change"></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Done</div>
                         <div class="stat-value">0</div>
-                        <div class="stat-change">lifetime</div>
+                        <div class="stat-change"></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Global Rank</div>
@@ -1818,7 +1818,7 @@
                     <div class="stat-card">
                         <div class="stat-label">Member Since</div>
                         <div class="stat-value" id="member-since-date">-</div>
-                        <div class="stat-change" id="member-since-text">not a member</div>
+                        <div class="stat-change"></div>
                     </div>
                 </div>
 
@@ -2445,13 +2445,13 @@ function showPopup(message, isError) {
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-label">Total Earned</div>
-                        <div class="stat-value">${formatNumber(currentUser.total_earned)}</div>
-                        <div class="stat-change">USDC</div>
+                        <div class="stat-value">$${formatNumber(currentUser.total_earned)}</div>
+                        <div class="stat-change"></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Completed</div>
                         <div class="stat-value">${currentUser.tasks_completed || 0}</div>
-                        <div class="stat-change">lifetime</div>
+                        <div class="stat-change"></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Global Rank</div>
@@ -2472,13 +2472,13 @@ function showPopup(message, isError) {
                 profileStats.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-label">Total Earned</div>
-                        <div class="stat-value">${formatNumber(currentUser.total_earned)}</div>
-                        <div class="stat-change">USDC</div>
+                        <div class="stat-value">$${formatNumber(currentUser.total_earned)}</div>
+                        <div class="stat-change"></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Tasks Done</div>
                         <div class="stat-value">${currentUser.tasks_completed || 0}</div>
-                        <div class="stat-change">lifetime</div>
+                        <div class="stat-change"></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Global Rank</div>
@@ -2488,7 +2488,7 @@ function showPopup(message, isError) {
                     <div class="stat-card">
                         <div class="stat-label">Member Since</div>
                         <div class="stat-value">${memberDateStr}</div>
-                        <div class="stat-change">${memberDate ? 'active member' : 'not a member'}</div>
+                        <div class="stat-change"></div>
                     </div>
                 `;
             }
