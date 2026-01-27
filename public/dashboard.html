@@ -2193,7 +2193,7 @@
                     : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
                 return `
-                    <div class="notification-item ${notif.is_read ? '' : 'unread'}" onclick="markNotificationRead('${notif.id}')">
+                    <div class="notification-item ${notif.is_read ? '' : 'unread'}" onclick="handleNotificationClick('${notif.id}', '${notif.type}')" style="cursor:pointer;">
                         <div class="notification-icon ${iconClass}">${icon}</div>
                         <div class="notification-content">
                             <div class="notification-title">${escapeHtml(notif.title)}</div>
@@ -2234,6 +2234,16 @@
                 updateNotificationBadge();
             } catch (err) {
                 console.error('Failed to mark notification as read:', err);
+            }
+        }
+
+        function handleNotificationClick(notifId, type) {
+            markNotificationRead(notifId);
+            document.getElementById('notificationDropdown').classList.remove('show');
+            if (type === 'NEW_TASK') {
+                navigateTo('tasks');
+            } else if (type === 'APPROVED' || type === 'REJECTED') {
+                navigateTo('submissions');
             }
         }
 
