@@ -1946,7 +1946,7 @@
                 </div>
                 <div class="submit-modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeSubmitModal()">CANCEL</button>
-                    <button type="submit" class="btn btn-primary">SUBMIT</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">SUBMIT</button>
                 </div>
             </form>
         </div>
@@ -2772,6 +2772,11 @@ function showPopup(message, isError) {
         async function handleSubmitTask(event) {
             event.preventDefault();
 
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn.disabled) return;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'SUBMITTING...';
+
             const taskId = document.getElementById('submitTaskId').value;
             const proofUrl = document.getElementById('submitProofUrl').value;
             const comment = document.getElementById('submitComment').value;
@@ -2802,6 +2807,9 @@ function showPopup(message, isError) {
             } catch (err) {
                 console.error('Failed to submit:', err);
                 showPopup('Failed to submit. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'SUBMIT';
             }
         }
 
