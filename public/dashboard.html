@@ -1482,6 +1482,22 @@
                 width: 16px;
                 height: 16px;
             }
+
+            /* Mobile notification dropdown */
+            .notification-dropdown {
+                position: fixed;
+                top: 60px;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+                max-width: 100%;
+                z-index: 1001;
+                max-height: calc(100vh - 160px);
+            }
+
+            .notification-list {
+                max-height: calc(100vh - 260px);
+            }
         }
 
         @media (max-width: 768px) {
