@@ -859,8 +859,10 @@
                 return;
             }
 
-            container.innerHTML = filtered.map(sub => `
-                <div class="submission-card" id="submission-${sub.id}">
+            container.innerHTML = filtered.map(sub => {
+                const safeId = escapeHtml(sub.id);
+                return `
+                <div class="submission-card" id="submission-${safeId}">
                     <div class="submission-header">
                         <div class="submission-user">
                             <div class="submission-avatar">
@@ -871,7 +873,7 @@
                                 <div class="submission-handle">@${escapeHtml(sub.users?.username || 'unknown')}</div>
                             </div>
                         </div>
-                        <div class="submission-status ${sub.status.toLowerCase()}">${sub.status}</div>
+                        <div class="submission-status ${escapeHtml(sub.status?.toLowerCase())}">${escapeHtml(sub.status)}</div>
                     </div>
                     <div class="submission-details">
                         <div class="detail-item">
@@ -880,7 +882,7 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">REWARD</div>
-                            <div class="detail-value reward-value">${sub.tasks?.reward || 0} USDC</div>
+                            <div class="detail-value reward-value">${Number(sub.tasks?.reward) || 0} USDC</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">WALLET ADDRESS</div>
@@ -915,12 +917,12 @@
                     </div>
                     ${sub.status === 'PENDING' ? `
                     <div class="submission-actions">
-                        <button class="btn btn-small" onclick="approveSubmission('${sub.id}')">APPROVE</button>
-                        <button class="btn btn-small btn-danger" onclick="rejectSubmission('${sub.id}')">REJECT</button>
+                        <button class="btn btn-small" onclick="approveSubmission('${safeId}')">APPROVE</button>
+                        <button class="btn btn-small btn-danger" onclick="rejectSubmission('${safeId}')">REJECT</button>
                     </div>
                     ` : ''}
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         async function approveSubmission(id) {
@@ -1213,8 +1215,10 @@
                 return;
             }
 
-            container.innerHTML = filteredTasks.map(task => `
-                <div class="task-card ${task.is_active ? '' : 'inactive'}" id="task-${task.id}">
+            container.innerHTML = filteredTasks.map(task => {
+                const safeId = escapeHtml(task.id);
+                return `
+                <div class="task-card ${task.is_active ? '' : 'inactive'}" id="task-${safeId}">
                     <div class="task-info">
                         <h4>
                             ${escapeHtml(task.title)}
@@ -1224,7 +1228,7 @@
                         <div class="task-meta">
                             <div class="task-meta-item reward">
                                 <span>Reward:</span>
-                                <span class="value">${task.reward} USDC</span>
+                                <span class="value">${Number(task.reward) || 0} USDC</span>
                             </div>
                             <div class="task-meta-item">
                                 <span>Category:</span>
@@ -1236,12 +1240,12 @@
                             </div>
                             <div class="task-meta-item">
                                 <span>Slots:</span>
-                                <span class="value">${task.slots_filled || 0}/${task.slots_total}</span>
+                                <span class="value">${Number(task.slots_filled) || 0}/${Number(task.slots_total) || 0}</span>
                             </div>
                             ${task.min_followers > 0 ? `
                             <div class="task-meta-item">
                                 <span>Min Followers:</span>
-                                <span class="value">${task.min_followers.toLocaleString()}</span>
+                                <span class="value">${Number(task.min_followers).toLocaleString()}</span>
                             </div>
                             ` : ''}
                             ${task.task_url ? `
@@ -1253,12 +1257,12 @@
                         </div>
                     </div>
                     <div class="task-actions">
-                        <button class="btn btn-small" onclick="editTask('${task.id}')">EDIT</button>
-                        <button class="btn btn-small btn-outline" onclick="toggleTaskActive('${task.id}', ${!task.is_active})">${task.is_active ? 'DEACTIVATE' : 'ACTIVATE'}</button>
-                        <button class="btn btn-small btn-danger" onclick="deleteTask('${task.id}')">DELETE</button>
+                        <button class="btn btn-small" onclick="editTask('${safeId}')">EDIT</button>
+                        <button class="btn btn-small btn-outline" onclick="toggleTaskActive('${safeId}', ${!task.is_active})">${task.is_active ? 'DEACTIVATE' : 'ACTIVATE'}</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteTask('${safeId}')">DELETE</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function editTask(taskId) {

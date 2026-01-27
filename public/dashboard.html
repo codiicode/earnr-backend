@@ -921,14 +921,16 @@
             border: 1px solid var(--border);
             padding: 2rem 2.5rem;
             display: grid;
-            grid-template-columns: 140px 1fr 180px 140px;
+            grid-template-columns: 140px 1fr 180px auto;
             gap: 3rem;
             align-items: center;
             width: 100%;
+            cursor: pointer;
+            transition: border-color 0.2s;
         }
 
         .task-card:hover {
-            border-color: var(--border-light);
+            border-color: var(--green);
         }
 
         .task-reward {
@@ -999,7 +1001,10 @@
         .task-timer { font-size: 0.7rem; color: var(--yellow); margin-top: 0.5rem; }
 
         .task-action {
-            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
         }
 
         /* Submissions */
@@ -2079,7 +2084,7 @@
                     }
 
                     return `
-                    <div class="task-card" data-task-id="${task.id}">
+                    <div class="task-card" data-task-id="${task.id}" onclick="handleTaskCardClick(event, '${task.task_url || ''}')">
                         <div class="task-reward">
                             <div class="task-reward-label">Reward</div>
                             <div class="task-reward-value">$${formatNumber(task.reward)}</div>
@@ -2101,7 +2106,6 @@
                             ${minFollowers > 0 && !meetsRequirement ? `<div style="font-size:0.6rem;color:var(--red);margin-top:0.3rem;">You need ${minFollowers.toLocaleString()} followers</div>` : ''}
                         </div>
                         <div class="task-action">
-                            ${task.task_url ? `<a href="${safeUrl(task.task_url)}" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
                             <button class="${buttonClass}" ${buttonOnClick} ${buttonTitle}>${buttonText}</button>
                         </div>
                     </div>
@@ -2731,6 +2735,12 @@ function showPopup(message, isError) {
             } catch (err) {
                 console.error('Failed to fetch task count:', err);
             }
+        }
+
+        function handleTaskCardClick(event, taskUrl) {
+            // Don't navigate if clicking a button or link
+            if (event.target.closest('button') || event.target.closest('a')) return;
+            if (taskUrl) window.open(taskUrl, '_blank');
         }
 
         function openSubmitModal(taskId) {
