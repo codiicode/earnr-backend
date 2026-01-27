@@ -1796,12 +1796,17 @@
                         <div class="profile-handle">
                             Connect with X to get started
                         </div>
+                        <div class="wallet-row" style="display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem;">
+                            <div class="settings-label" style="color:var(--gray);font-size:0.85rem;white-space:nowrap;">Solana Wallet</div>
+                            <input type="text" id="wallet-input" class="input-field" placeholder="Enter your SOL address to receive payouts..." style="flex:1;max-width:500px;">
+                            <button class="btn" onclick="saveWallet()">SAVE</button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="stats-grid" id="profile-stats">
                     <div class="stat-card">
-                        <div class="stat-label">Total Earned</div>
+                        <div class="stat-label">Total Earnd</div>
                         <div class="stat-value">$0</div>
                         <div class="stat-change"></div>
                     </div>
@@ -1822,21 +1827,6 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
-                    <div class="settings-header">Payout Settings</div>
-                    <div class="settings-body">
-                        <div class="settings-row">
-                            <div class="settings-label">Solana Wallet</div>
-                            <input type="text" id="wallet-input" class="input-field" placeholder="Enter your SOL address to receive payouts...">
-                            <button class="btn" onclick="saveWallet()">SAVE</button>
-                        </div>
-                        <div class="settings-row">
-                            <div class="settings-label">Connected Account</div>
-                            <span id="connected-account" style="color:var(--gray);font-size:0.85rem">Not connected</span>
-                            <span id="x-connected" style="display:none;color:var(--green);font-size:0.85rem"></span>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Payouts -->
@@ -2431,6 +2421,11 @@ function showPopup(message, isError) {
                         <div class="profile-handle">
                             <a href="https://x.com/${currentUser.username}" target="_blank">@${currentUser.username}</a> — ${(currentUser.followers_count || 0).toLocaleString()} followers
                         </div>
+                        <div class="wallet-row" style="display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem;">
+                            <div class="settings-label" style="color:var(--gray);font-size:0.85rem;white-space:nowrap;">Solana Wallet</div>
+                            <input type="text" id="wallet-input" class="input-field" placeholder="Enter your SOL address to receive payouts..." style="flex:1;max-width:500px;" value="${currentUser.wallet_address || ''}">
+                            <button class="btn" onclick="saveWallet()">SAVE</button>
+                        </div>
                     </div>
                 `;
             }
@@ -2444,7 +2439,7 @@ function showPopup(message, isError) {
             if (statsGrid) {
                 statsGrid.innerHTML = `
                     <div class="stat-card">
-                        <div class="stat-label">Total Earned</div>
+                        <div class="stat-label">Total Earnd</div>
                         <div class="stat-value">$${formatNumber(currentUser.total_earned)}</div>
                         <div class="stat-change"></div>
                     </div>
@@ -2471,7 +2466,7 @@ function showPopup(message, isError) {
 
                 profileStats.innerHTML = `
                     <div class="stat-card">
-                        <div class="stat-label">Total Earned</div>
+                        <div class="stat-label">Total Earnd</div>
                         <div class="stat-value">$${formatNumber(currentUser.total_earned)}</div>
                         <div class="stat-change"></div>
                     </div>
