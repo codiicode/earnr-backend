@@ -1853,6 +1853,19 @@
                 </div>
 
                 <div class="card" style="margin-top:2rem;">
+                    <div class="card-body" style="display:flex;flex-direction:column;gap:0.75rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                            <span style="font-size:0.7rem;letter-spacing:0.08em;color:var(--gray);text-transform:uppercase;">Payout Wallet:</span>
+                            <span style="font-size:0.75rem;color:var(--white);font-family:monospace;word-break:break-all;">2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <span style="font-size:0.7rem;letter-spacing:0.08em;color:var(--gray);text-transform:uppercase;">Current USDC in Payout Wallet:</span>
+                            <span id="payout-wallet-usdc" style="font-size:0.85rem;color:var(--green);font-weight:600;">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:2rem;">
                     <div class="card-header">
                         <span class="card-title">Payout History</span>
                         <div class="live-badge">
@@ -2888,6 +2901,37 @@ function showPopup(message, isError) {
         // ============================================
 
         let payoutChart = null;
+
+        async function fetchPayoutWalletUSDC() {
+            const wallet = '2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb';
+            const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+            const el = document.getElementById('payout-wallet-usdc');
+            try {
+                const res = await fetch('https://api.mainnet-beta.solana.com', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0', id: 1,
+                        method: 'getTokenAccountsByOwner',
+                        params: [wallet, { mint: usdcMint }, { encoding: 'jsonParsed' }]
+                    })
+                });
+                const data = await res.json();
+                const accounts = data.result?.value || [];
+                let total = 0;
+                accounts.forEach(a => {
+                    total += parseFloat(a.account.data.parsed.info.tokenAmount.uiAmountString || '0');
+                });
+                if (el) el.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USDC';
+            } catch (err) {
+                console.error('Failed to fetch payout wallet USDC:', err);
+                if (el) el.textContent = 'Unavailable';
+            }
+        }
+
+        // Fetch wallet balance on load and refresh every 30 seconds
+        fetchPayoutWalletUSDC();
+        setInterval(fetchPayoutWalletUSDC, 30000);
 
         async function loadPayouts() {
             try {
