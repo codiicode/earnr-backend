@@ -834,8 +834,15 @@ module.exports = async function(req, res) {
         });
       }
 
+      // Parse request body for rejection_reason
+      var bodyData = {};
+      try {
+        bodyData = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      } catch (e) { bodyData = {}; }
+      var rejectionReason = bodyData.rejection_reason || null;
+
       var subId = p.split('/')[4];
-      console.log('REJECT: Starting rejection for submission ID:', subId);
+      console.log('REJECT: Starting rejection for submission ID:', subId, 'Reason:', rejectionReason);
 
       var sub = await supabase.from('submissions').select('*, tasks(title)').eq('id', subId).single();
       if (sub.error) {
@@ -848,7 +855,7 @@ module.exports = async function(req, res) {
 
       var updateResult = await supabase
         .from('submissions')
-        .update({status: 'REJECTED'})
+        .update({status: 'REJECTED', rejection_reason: rejectionReason})
         .eq('id', subId);
 
       console.log('REJECT: Update result:', JSON.stringify(updateResult));
@@ -881,11 +888,15 @@ module.exports = async function(req, res) {
       }
 
       // Create notification for user
+      var notificationMessage = 'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was not approved.';
+      if (rejectionReason) {
+        notificationMessage += ' Reason: ' + rejectionReason;
+      }
       var notificationResult = await createNotification(
         sub.data.user_id,
         'REJECTED',
         'Submission Rejected',
-        'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was not approved.',
+        notificationMessage,
         subId
       );
       console.log('REJECT: Notification result:', JSON.stringify(notificationResult));

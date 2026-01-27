@@ -2671,7 +2671,8 @@ function showPopup(message, isError) {
                     try {
                         const subRes = await fetch('/api/submissions', { credentials: 'include' });
                         const subData = await subRes.json();
-                        userSubmittedTaskIds = new Set((subData.submissions || []).map(s => s.task_id));
+                        // Only count non-rejected submissions - allow resubmission after rejection
+                        userSubmittedTaskIds = new Set((subData.submissions || []).filter(s => s.status !== 'REJECTED').map(s => s.task_id));
                     } catch (e) { /* ignore */ }
                 }
 
@@ -2844,6 +2845,12 @@ function showPopup(message, isError) {
                             <div class="submission-detail" style="grid-column: 1 / -1;">
                                 <div class="submission-detail-label">Payment TX</div>
                                 <div class="submission-detail-value"><a href="https://solscan.io/tx/${sub.tx_hash}" target="_blank" style="word-break: break-all;">${sub.tx_hash.slice(0,20)}...</a></div>
+                            </div>
+                            ` : ''}
+                            ${sub.rejection_reason ? `
+                            <div class="submission-detail" style="grid-column: 1 / -1;">
+                                <div class="submission-detail-label" style="color: var(--red);">Rejection Reason</div>
+                                <div class="submission-detail-value" style="color: var(--red);">${sub.rejection_reason}</div>
                             </div>
                             ` : ''}
                         </div>
