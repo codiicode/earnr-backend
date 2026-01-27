@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>earnr.xyz — Privacy Policy</title>
+    <meta name="description" content="Privacy Policy for earnr.xyz">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
+
+    <style>
+        @font-face {
+            font-family: 'Geist Mono';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-Regular.woff2') format('woff2');
+            font-weight: 400;
+        }
+
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            --green: #00FF66;
+            --gray: #666;
+            --gray-light: #999;
+            --border: #161616;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Geist Mono', monospace;
+            background: var(--black);
+            color: var(--white);
+            line-height: 1.7;
+        }
+
+        a { color: var(--green); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--white);
+            text-decoration: none;
+        }
+
+        .logo-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 8rem 2rem 4rem;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .last-updated {
+            color: var(--gray);
+            font-size: 0.75rem;
+            margin-bottom: 3rem;
+        }
+
+        h2 {
+            font-size: 1rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--green);
+            font-weight: 600;
+        }
+
+        p, li {
+            font-size: 0.85rem;
+            color: var(--gray-light);
+            margin-bottom: 1rem;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 3rem;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="logo">
+            <span class="logo-dot"></span>
+            earnr.xyz
+        </a>
+    </header>
+
+    <main>
+        <h1>Privacy Policy</h1>
+        <p class="last-updated">Last updated: January 2025</p>
+
+        <p>This policy explains how earnr.xyz collects, uses, and protects your information.</p>
+
+        <h2>1. Information We Collect</h2>
+        <p>When you use earnr.xyz, we collect:</p>
+        <ul>
+            <li><strong>X (Twitter) Profile Data:</strong> Username, display name, profile picture, and follower count (via X OAuth)</li>
+            <li><strong>Wallet Address:</strong> Your Solana wallet address for payments</li>
+            <li><strong>Submissions:</strong> Task submissions and proof you provide</li>
+            <li><strong>Usage Data:</strong> Basic analytics like page views</li>
+        </ul>
+
+        <h2>2. How We Use Your Information</h2>
+        <ul>
+            <li>To verify your identity and eligibility for tasks</li>
+            <li>To process task submissions and payments</li>
+            <li>To display leaderboards and activity feeds</li>
+            <li>To prevent fraud and abuse</li>
+            <li>To improve our platform</li>
+        </ul>
+
+        <h2>3. Information Sharing</h2>
+        <p>We do not sell your personal information. We may share data:</p>
+        <ul>
+            <li>Publicly: Your username and earnings appear on leaderboards</li>
+            <li>With service providers: Hosting (Vercel), database (Supabase)</li>
+            <li>If required by law</li>
+        </ul>
+
+        <h2>4. Data Storage</h2>
+        <p>Your data is stored securely using industry-standard practices. We use Supabase for our database with encryption at rest.</p>
+
+        <h2>5. Your Rights</h2>
+        <p>You can:</p>
+        <ul>
+            <li>Access your data through your profile</li>
+            <li>Update your wallet address at any time</li>
+            <li>Request account deletion by contacting us</li>
+        </ul>
+
+        <h2>6. Cookies</h2>
+        <p>We use essential cookies to keep you logged in. We do not use tracking cookies for advertising.</p>
+
+        <h2>7. Third-Party Services</h2>
+        <p>We integrate with:</p>
+        <ul>
+            <li><strong>X (Twitter):</strong> For authentication</li>
+            <li><strong>Solana:</strong> For payments</li>
+        </ul>
+        <p>These services have their own privacy policies.</p>
+
+        <h2>8. Changes</h2>
+        <p>We may update this policy. Significant changes will be announced on our X account.</p>
+
+        <h2>9. Contact</h2>
+        <p>Questions about privacy? Reach out on X: <a href="https://x.com/EarnrXyz" target="_blank">@EarnrXyz</a></p>
+
+        <a href="/" class="back-link">&larr; Back to home</a>
+    </main>
+</body>
+</html>
