@@ -2083,11 +2083,11 @@
                             <div class="task-reward-value">$${formatNumber(task.reward)}</div>
                         </div>
                         <div class="task-content">
-                            <h3>${task.title}</h3>
-                            <p>${task.description}</p>
+                            <h3>${escapeHtml(task.title)}</h3>
+                            <p>${escapeHtml(task.description)}</p>
                             <div class="task-tags">
-                                <span class="task-tag">${task.category}</span>
-                                <span class="task-tag ${task.difficulty.toLowerCase()}">${task.difficulty}</span>
+                                <span class="task-tag">${escapeHtml(task.category)}</span>
+                                <span class="task-tag ${safeAttr(task.difficulty.toLowerCase())}">${escapeHtml(task.difficulty)}</span>
                                 ${minFollowers > 0 ? `<span class="task-tag" style="background:rgba(255,165,2,0.08);color:var(--yellow);border:1px solid rgba(255,165,2,0.2);">${minFollowers.toLocaleString()}+ FOLLOWERS</span>` : ''}
                             </div>
                         </div>
@@ -2099,7 +2099,7 @@
                             ${minFollowers > 0 && !meetsRequirement ? `<div style="font-size:0.6rem;color:var(--red);margin-top:0.3rem;">You need ${minFollowers.toLocaleString()} followers</div>` : ''}
                         </div>
                         <div class="task-action">
-                            ${task.task_url ? `<a href="${task.task_url}" target="_blank" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
+                            ${task.task_url ? `<a href="${safeUrl(task.task_url)}" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding:0.6rem 1rem;text-decoration:none;display:inline-block;margin-right:0.5rem;">GO TO TASK</a>` : ''}
                             <button class="${buttonClass}" ${buttonOnClick} ${buttonTitle}>${buttonText}</button>
                         </div>
                     </div>
@@ -2226,6 +2226,19 @@
             return div.innerHTML;
         }
 
+        function safeUrl(url) {
+            if (!url) return '';
+            try {
+                const parsed = new URL(url);
+                if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return escapeHtml(url);
+            } catch (e) {}
+            return '';
+        }
+
+        function safeAttr(val) {
+            return String(val || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
         async function markNotificationRead(notifId) {
             try {
                 await fetch(`/api/notifications/${notifId}/read`, { method: 'POST' });
@@ -2279,10 +2292,10 @@
                             </div>
                             <div style="text-align:center;padding:1rem 0;">
                                 <div style="width:80px;height:80px;margin:0 auto 1rem;border-radius:50%;overflow:hidden;border:2px solid var(--green);">
-                                    <img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">
+                                    <img src="${safeUrl(user.avatar_url)}" style="width:100%;height:100%;object-fit:cover;">
                                 </div>
-                                <div style="font-size:1.2rem;font-weight:500;margin-bottom:0.25rem;">${user.display_name || user.username}</div>
-                                <a href="https://x.com/${user.username}" target="_blank" style="color:var(--green);font-size:0.85rem;">@${user.username}</a>
+                                <div style="font-size:1.2rem;font-weight:500;margin-bottom:0.25rem;">${escapeHtml(user.display_name || user.username)}</div>
+                                <a href="https://x.com/${safeAttr(user.username)}" target="_blank" rel="noopener noreferrer" style="color:var(--green);font-size:0.85rem;">@${escapeHtml(user.username)}</a>
                                 <div style="color:var(--gray);font-size:0.75rem;margin-top:0.5rem;">${(user.followers_count || 0).toLocaleString()} followers</div>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
@@ -2355,7 +2368,7 @@ function showPopup(message, isError) {
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn 0.3s ease';
     var box = document.createElement('div');
     box.style.cssText = 'background:#000;border:1px solid var(--primary);border-radius:8px;padding:3rem 4rem;text-align:center;max-width:500px;animation:popIn 0.3s ease';
-    box.innerHTML = '<div style="font-size:1.2rem;color:#fff;font-family:Geist Mono,monospace;line-height:1.8;">' + message + '</div><button onclick="document.getElementById(\'earnr-popup\').remove()" style="margin-top:2rem;padding:0.75rem 2rem;background:var(--primary);color:#000;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-family:Geist Mono,monospace;">OK</button>';
+    box.innerHTML = '<div style="font-size:1.2rem;color:#fff;font-family:Geist Mono,monospace;line-height:1.8;">' + escapeHtml(message) + '</div><button onclick="document.getElementById(\'earnr-popup\').remove()" style="margin-top:2rem;padding:0.75rem 2rem;background:var(--primary);color:#000;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-family:Geist Mono,monospace;">OK</button>';
     overlay.appendChild(box);
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
     document.body.appendChild(overlay);
@@ -2366,7 +2379,7 @@ function showPopup(message, isError) {
 
             if (currentUser) {
                 // Update button to show logged in
-                btn.innerHTML = `<img src="${currentUser.avatar_url}" style="width:20px;height:20px;border-radius:2px;"> @${currentUser.username}`;
+                btn.innerHTML = `<img src="${safeUrl(currentUser.avatar_url)}" style="width:20px;height:20px;border-radius:2px;"> @${escapeHtml(currentUser.username)}`;
                 btn.classList.remove('btn-x');
                 btn.classList.add('btn');
 
@@ -2379,17 +2392,17 @@ function showPopup(message, isError) {
 
                 // Update sidebar user card
                 document.querySelector('.user-card').innerHTML = `
-                    <div class="user-avatar"><img src="${currentUser.avatar_url}" style="width:100%;height:100%;object-fit:cover;"></div>
+                    <div class="user-avatar"><img src="${safeUrl(currentUser.avatar_url)}" style="width:100%;height:100%;object-fit:cover;"></div>
                     <div class="user-info">
-                        <div class="user-name">${currentUser.display_name || currentUser.username}</div>
-                        <div class="user-handle">@${currentUser.username}</div>
+                        <div class="user-name">${escapeHtml(currentUser.display_name || currentUser.username)}</div>
+                        <div class="user-handle">@${escapeHtml(currentUser.username)}</div>
                     </div>
                 `;
 
                 // Update mobile nav profile icon
                 const mobileProfileIcon = document.getElementById('mobile-profile-icon');
                 if (mobileProfileIcon) {
-                    mobileProfileIcon.innerHTML = `<img src="${currentUser.avatar_url}" class="mobile-profile-avatar">`;
+                    mobileProfileIcon.innerHTML = `<img src="${safeUrl(currentUser.avatar_url)}" class="mobile-profile-avatar">`;
                 }
 
                 // Update profile page
@@ -2407,16 +2420,16 @@ function showPopup(message, isError) {
             if (profileHeader) {
                 profileHeader.innerHTML = `
                     <div class="profile-avatar">
-                        <img src="${currentUser.avatar_url}" style="width:100%;height:100%;object-fit:cover;">
+                        <img src="${safeUrl(currentUser.avatar_url)}" style="width:100%;height:100%;object-fit:cover;">
                     </div>
                     <div class="profile-info">
-                        <h2>${currentUser.display_name || currentUser.username}</h2>
+                        <h2>${escapeHtml(currentUser.display_name || currentUser.username)}</h2>
                         <div class="profile-handle">
-                            <a href="https://x.com/${currentUser.username}" target="_blank">@${currentUser.username}</a> — ${(currentUser.followers_count || 0).toLocaleString()} followers
+                            <a href="https://x.com/${safeAttr(currentUser.username)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(currentUser.username)}</a> — ${(currentUser.followers_count || 0).toLocaleString()} followers
                         </div>
                         <div class="wallet-row" style="display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem;">
                             <div class="settings-label" style="color:var(--gray);font-size:0.85rem;white-space:nowrap;">Solana Wallet</div>
-                            <input type="text" id="wallet-input" class="input-field" placeholder="Enter your SOL address to receive payouts..." style="flex:1;max-width:500px;" value="${currentUser.wallet_address || ''}">
+                            <input type="text" id="wallet-input" class="input-field" placeholder="Enter your SOL address to receive payouts..." style="flex:1;max-width:500px;" value="${safeAttr(currentUser.wallet_address || '')}">
                             <button class="btn" onclick="saveWallet()">SAVE</button>
                         </div>
                     </div>
@@ -2586,16 +2599,16 @@ function showPopup(message, isError) {
                 if (data.activity && data.activity.length > 0) {
                     feed.innerHTML = data.activity.map(item => `
                         <div class="activity-item">
-                            <div class="activity-avatar" style="cursor:pointer" onclick="viewUserProfile('${item.user_id}')">
-                                ${item.avatar_url ? `<img src="${item.avatar_url}" alt="">` : ''}
+                            <div class="activity-avatar" style="cursor:pointer" onclick="viewUserProfile('${safeAttr(item.user_id)}')">
+                                ${item.avatar_url ? `<img src="${safeUrl(item.avatar_url)}" alt="">` : ''}
                             </div>
                             <div class="activity-content">
                                 <div class="activity-text">
-                                    <strong style="cursor:pointer" onclick="viewUserProfile('${item.user_id}')">@${item.username}</strong>
+                                    <strong style="cursor:pointer" onclick="viewUserProfile('${safeAttr(item.user_id)}')">@${escapeHtml(item.username)}</strong>
                                     ${item.type === 'JOIN' ? 'just joined EARNR' : `earned ${item.amount?.toLocaleString()} USDC`}
                                 </div>
                                 <div class="activity-meta">
-                                    ${item.type === 'JOIN' ? 'New earnr' : item.task_name} — ${timeAgo(item.created_at)}
+                                    ${item.type === 'JOIN' ? 'New earnr' : escapeHtml(item.task_name)} — ${timeAgo(item.created_at)}
                                 </div>
                             </div>
                             <div class="activity-badge ${item.type === 'JOIN' ? 'join' : ''}">
@@ -2626,13 +2639,13 @@ function showPopup(message, isError) {
                 
                 if (data.leaderboard && data.leaderboard.length > 0) {
                     container.innerHTML = data.leaderboard.slice(0, 4).map((user, i) => `
-                        <div class="lb-item" style="cursor:pointer" onclick="viewUserProfile('${user.id}')">
+                        <div class="lb-item" style="cursor:pointer" onclick="viewUserProfile('${safeAttr(user.id)}')">
                             <div class="lb-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
                             <div class="lb-avatar">
-                                ${user.avatar_url ? `<img src="${user.avatar_url}" alt="">` : ''}
+                                ${user.avatar_url ? `<img src="${safeUrl(user.avatar_url)}" alt="">` : ''}
                             </div>
                             <div class="lb-info">
-                                <div class="lb-name">@${user.username}</div>
+                                <div class="lb-name">@${escapeHtml(user.username)}</div>
                                 <div class="lb-tasks">${user.tasks_completed} tasks</div>
                             </div>
                             <div class="lb-earnings">$${formatNumber(user.total_earned)}</div>
@@ -2825,7 +2838,7 @@ function showPopup(message, isError) {
                 const subsHtml = filtered.map(sub => `
                     <div class="submission-card">
                         <div class="submission-header">
-                            <span class="submission-task">${sub.tasks?.title || 'Task'}</span>
+                            <span class="submission-task">${escapeHtml(sub.tasks?.title || 'Task')}</span>
                             <span class="submission-status ${sub.status.toLowerCase()}">${sub.status}</span>
                         </div>
                         <div class="submission-body">
@@ -2843,18 +2856,18 @@ function showPopup(message, isError) {
                             </div>
                             <div class="submission-detail">
                                 <div class="submission-detail-label">Proof</div>
-                                <div class="submission-detail-value"><a href="${sub.proof_url}" target="_blank">View</a></div>
+                                <div class="submission-detail-value"><a href="${safeUrl(sub.proof_url)}" target="_blank" rel="noopener noreferrer">View</a></div>
                             </div>
                             ${sub.tx_hash ? `
                             <div class="submission-detail" style="grid-column: 1 / -1;">
                                 <div class="submission-detail-label">Payment TX</div>
-                                <div class="submission-detail-value"><a href="https://solscan.io/tx/${sub.tx_hash}" target="_blank" style="word-break: break-all;">${sub.tx_hash.slice(0,20)}...</a></div>
+                                <div class="submission-detail-value"><a href="https://solscan.io/tx/${safeAttr(sub.tx_hash)}" target="_blank" rel="noopener noreferrer" style="word-break: break-all;">${escapeHtml(sub.tx_hash.slice(0,20))}...</a></div>
                             </div>
                             ` : ''}
                             ${sub.rejection_reason ? `
                             <div class="submission-detail" style="grid-column: 1 / -1;">
                                 <div class="submission-detail-label" style="color: var(--red);">Rejection Reason</div>
-                                <div class="submission-detail-value" style="color: var(--red);">${sub.rejection_reason}</div>
+                                <div class="submission-detail-value" style="color: var(--red);">${escapeHtml(sub.rejection_reason)}</div>
                             </div>
                             ` : ''}
                         </div>
@@ -2915,12 +2928,12 @@ function showPopup(message, isError) {
                 if (feed && data.transactions && data.transactions.length > 0) {
                     feed.innerHTML = data.transactions.slice(0, 10).map(tx => `
                         <div class="activity-item">
-                            <div class="activity-avatar" style="${tx.avatar_url ? 'background-image:url(' + tx.avatar_url + ');background-size:cover;' : 'background:var(--green-dim);border:1px solid var(--green-border);display:flex;align-items:center;justify-content:center;color:var(--green);'}">
+                            <div class="activity-avatar" style="${tx.avatar_url ? 'background-image:url(' + safeAttr(tx.avatar_url) + ');background-size:cover;' : 'background:var(--green-dim);border:1px solid var(--green-border);display:flex;align-items:center;justify-content:center;color:var(--green);'}">
                                 ${tx.avatar_url ? '' : '$'}
                             </div>
                             <div class="activity-content">
-                                <div class="activity-text"><strong>@${tx.username || 'Unknown'}</strong> earned <strong style="color:var(--green)">$${tx.amount.toFixed(2)} USDC</strong></div>
-                                <div class="activity-meta">${tx.task_title || 'Task completed'}</div>
+                                <div class="activity-text"><strong>@${escapeHtml(tx.username || 'Unknown')}</strong> earned <strong style="color:var(--green)">$${tx.amount.toFixed(2)} USDC</strong></div>
+                                <div class="activity-meta">${escapeHtml(tx.task_title || 'Task completed')}</div>
                             </div>
                             <div class="activity-badge" style="background:var(--green-dim);color:var(--green);">${timeAgo(tx.timestamp)}</div>
                         </div>

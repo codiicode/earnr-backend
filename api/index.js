@@ -41,8 +41,25 @@ module.exports = async function(req, res) {
   try {
     const url = new URL(req.url, BASE_URL);
     const p = url.pathname;
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    // Security headers
+    var allowedOrigins = [BASE_URL, 'https://earnr.xyz', 'https://www.earnr.xyz'];
+    var origin = req.headers.origin || '';
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', BASE_URL);
+    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Key');
+      return res.status(200).end();
+    }
 
     const cookies = {};
     String(req.headers.cookie || '').split(';').forEach(function(c) {
@@ -120,7 +137,7 @@ module.exports = async function(req, res) {
       return res.end();
     }
 
-    if (p === '/auth/logout') { res.setHeader('Set-Cookie', 'session=; Max-Age=0; Path=/'); res.writeHead(302, { 'Location': '/' }); return res.end(); }
+    if (p === '/auth/logout') { res.setHeader('Set-Cookie', 'session=; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Path=/'); res.writeHead(302, { 'Location': '/' }); return res.end(); }
     if (p === '/api/me') { return res.status(200).json({user: await getUser()}); }
     if (p.startsWith('/api/user/')) {
       var userId = p.split('/')[3];
@@ -197,7 +214,8 @@ module.exports = async function(req, res) {
       var u = await getUser();
       if(!u) return res.status(401).json({error: 'Not logged in'});
       var body = ''; for await (var chunk of req) { body += chunk; }
-      var data = JSON.parse(body);
+      var data;
+      try { data = JSON.parse(body); } catch (e) { return res.status(400).json({error: 'Invalid JSON'}); }
       var wallet = String(data.wallet || '').trim();
 
       // Validate Solana address format (32-44 chars, Base58)
@@ -413,8 +431,19 @@ module.exports = async function(req, res) {
       var user = await getUser();
       if (!user) return res.status(401).json({error: 'Not logged in'});
       var body = ''; for await (var chunk of req) { body += chunk; }
-      var data = JSON.parse(body);
+      var data;
+      try { data = JSON.parse(body); } catch (e) { return res.status(400).json({error: 'Invalid JSON'}); }
       if (!data.task_id || !data.proof_url) return res.status(400).json({error: 'Missing task_id or proof_url'});
+
+      // Validate proof URL is a valid HTTP(S) URL
+      try {
+        var proofUrl = new URL(data.proof_url);
+        if (proofUrl.protocol !== 'https:' && proofUrl.protocol !== 'http:') {
+          return res.status(400).json({error: 'Proof URL must be an HTTP or HTTPS link'});
+        }
+      } catch (e) {
+        return res.status(400).json({error: 'Invalid proof URL format'});
+      }
 
       // Get the task to check requirements
       var taskResult = await supabase.from('tasks').select('*').eq('id', data.task_id).single();
@@ -497,7 +526,8 @@ module.exports = async function(req, res) {
     if (p === '/api/admin/tasks' && req.method === 'POST') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var body = ''; for await (var chunk of req) { body += chunk; }
-      var data = JSON.parse(body);
+      var data;
+      try { data = JSON.parse(body); } catch (e) { return res.status(400).json({error: 'Invalid JSON'}); }
 
       if (!data.title || !data.reward) {
         return res.status(400).json({error: 'Title and reward are required'});
@@ -536,7 +566,8 @@ module.exports = async function(req, res) {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
       var taskId = p.split('/')[4];
       var body = ''; for await (var chunk of req) { body += chunk; }
-      var data = JSON.parse(body);
+      var data;
+      try { data = JSON.parse(body); } catch (e) { return res.status(400).json({error: 'Invalid JSON'}); }
 
       var updateData = {};
       if (data.title !== undefined) updateData.title = data.title;

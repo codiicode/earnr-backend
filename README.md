@@ -25,11 +25,11 @@ git push -u origin main
 
 | Name | Value |
 |------|-------|
-| X_CLIENT_ID | QWFUUVgzbEVjWUdWZUk3N1JqMmY6MTpjaQ |
-| X_CLIENT_SECRET | qGKyhdiPMK5PnnDwjVs40IEXvpAUcho-FASEaGVBnUYtrex8Va |
-| SUPABASE_URL | https://zzscefkggaqumiblnkdw.supabase.co |
-| SUPABASE_ANON_KEY | (your anon key) |
-| SUPABASE_SERVICE_KEY | (your service key) |
+| X_CLIENT_ID | (your X app client ID) |
+| X_CLIENT_SECRET | (your X app client secret) |
+| SUPABASE_URL | (your Supabase project URL) |
+| SUPABASE_ANON_KEY | (your Supabase anon key) |
+| SUPABASE_SERVICE_KEY | (your Supabase service_role key) |
 | BASE_URL | https://earnr.xyz |
 | ADMIN_KEY | (make up a secret key for admin access) |
 
