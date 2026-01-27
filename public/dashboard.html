@@ -1852,16 +1852,16 @@
                     </div>
                 </div>
 
-                <div class="card" style="margin-top:2rem;">
-                    <div class="card-body" style="display:flex;flex-direction:column;gap:0.75rem;">
-                        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                            <span style="font-size:0.7rem;letter-spacing:0.08em;color:var(--gray);text-transform:uppercase;">Payout Wallet:</span>
-                            <span style="font-size:0.75rem;color:var(--white);font-family:monospace;word-break:break-all;">2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:0.5rem;">
-                            <span style="font-size:0.7rem;letter-spacing:0.08em;color:var(--gray);text-transform:uppercase;">Current USDC in Payout Wallet:</span>
-                            <span id="payout-wallet-usdc" style="font-size:0.85rem;color:var(--green);font-weight:600;">Loading...</span>
-                        </div>
+                <div style="margin-top:2rem;display:flex;gap:1rem;flex-wrap:wrap;">
+                    <div class="stat-card" style="flex:1;min-width:200px;">
+                        <div class="stat-label">Payout Wallet</div>
+                        <div style="font-size:0.7rem;color:var(--white);font-family:inherit;letter-spacing:0.03em;word-break:break-all;cursor:pointer;margin-top:0.5rem;transition:color 0.2s;" onclick="copyWallet(this)" title="Click to copy">2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb</div>
+                        <div class="stat-change" id="wallet-copy-hint">click to copy</div>
+                    </div>
+                    <div class="stat-card" style="flex:0 0 auto;min-width:180px;">
+                        <div class="stat-label">Wallet Balance</div>
+                        <div class="stat-value" id="payout-wallet-usdc" style="font-size:2rem;">...</div>
+                        <div class="stat-change">USDC available</div>
                     </div>
                 </div>
 
@@ -2902,6 +2902,12 @@ function showPopup(message, isError) {
 
         let payoutChart = null;
 
+        function copyWallet(el) {
+            navigator.clipboard.writeText('2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb');
+            const hint = document.getElementById('wallet-copy-hint');
+            if (hint) { hint.textContent = 'copied!'; setTimeout(() => { hint.textContent = 'click to copy'; }, 2000); }
+        }
+
         async function fetchPayoutWalletUSDC() {
             const wallet = '2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb';
             const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -2922,7 +2928,7 @@ function showPopup(message, isError) {
                 accounts.forEach(a => {
                     total += parseFloat(a.account.data.parsed.info.tokenAmount.uiAmountString || '0');
                 });
-                if (el) el.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USDC';
+                if (el) el.textContent = '$' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             } catch (err) {
                 console.error('Failed to fetch payout wallet USDC:', err);
                 if (el) el.textContent = 'Unavailable';
