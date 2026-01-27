@@ -2625,7 +2625,7 @@ function showPopup(message, isError) {
                                 </div>
                             </div>
                             <div class="activity-badge ${item.type === 'JOIN' ? 'join' : ''}">
-                                ${item.type === 'JOIN' ? 'JOINED' : '+' + formatNumber(item.amount)}
+                                ${item.type === 'JOIN' ? 'JOINED' : '+$' + formatNumber(item.amount)}
                             </div>
                         </div>
                     `).join('');
