@@ -1860,7 +1860,7 @@
                 <div style="margin-top:2rem;display:flex;gap:1rem;flex-wrap:wrap;">
                     <div class="stat-card" style="flex:1;min-width:200px;">
                         <div class="stat-label">Payout Wallet</div>
-                        <div style="font-size:0.7rem;color:var(--white);font-family:inherit;letter-spacing:0.03em;word-break:break-all;cursor:pointer;margin-top:0.5rem;transition:color 0.2s;" onclick="copyWallet(this)" title="Click to copy">2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb</div>
+                        <div style="font-size:0.7rem;color:var(--white);font-family:inherit;letter-spacing:0.03em;word-break:break-all;cursor:pointer;margin-top:0.5rem;transition:color 0.2s;" onclick="copyWallet(this)" title="Click to copy">CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL</div>
                         <div class="stat-change" id="wallet-copy-hint">click to copy</div>
                     </div>
                     <div class="stat-card" style="flex:0 0 auto;min-width:180px;">
@@ -2921,34 +2921,64 @@ function showPopup(message, isError) {
         let payoutChart = null;
 
         function copyWallet(el) {
-            navigator.clipboard.writeText('2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb');
+            navigator.clipboard.writeText('CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL');
             const hint = document.getElementById('wallet-copy-hint');
             if (hint) { hint.textContent = 'copied!'; setTimeout(() => { hint.textContent = 'click to copy'; }, 2000); }
         }
 
         async function fetchPayoutWalletUSDC() {
-            const wallet = '2tYGqPs1CprSTbw9wZPWbw3PkgXGk1TEJWMwHfDdBBhb';
-            const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+            const wallet = 'CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL';
+            const rpc = 'https://api.mainnet-beta.solana.com';
             const el = document.getElementById('payout-wallet-usdc');
             try {
-                const res = await fetch('https://api.mainnet-beta.solana.com', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        jsonrpc: '2.0', id: 1,
-                        method: 'getTokenAccountsByOwner',
-                        params: [wallet, { mint: usdcMint }, { encoding: 'jsonParsed' }]
-                    })
-                });
-                const data = await res.json();
-                const accounts = data.result?.value || [];
-                let total = 0;
-                accounts.forEach(a => {
-                    total += parseFloat(a.account.data.parsed.info.tokenAmount.uiAmountString || '0');
-                });
-                if (el) el.textContent = '$' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                // Fetch SOL balance, all token accounts, and SOL price in parallel
+                const [solRes, tokensRes, priceRes] = await Promise.all([
+                    fetch(rpc, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [wallet] })
+                    }),
+                    fetch(rpc, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0', id: 2,
+                            method: 'getTokenAccountsByOwner',
+                            params: [wallet, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }]
+                        })
+                    }),
+                    fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+                ]);
+
+                const solData = await solRes.json();
+                const tokensData = await tokensRes.json();
+                const priceData = await priceRes.json();
+
+                // SOL balance in USD
+                const solBalance = (solData.result?.value || 0) / 1e9;
+                const solPrice = priceData?.solana?.usd || 0;
+                let totalUsd = solBalance * solPrice;
+
+                // Stablecoin mints (value = 1 USD per token)
+                const stablecoins = new Set([
+                    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+                    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+                ]);
+
+                const tokenAccounts = tokensData.result?.value || [];
+                for (const a of tokenAccounts) {
+                    const info = a.account.data.parsed.info;
+                    const mint = info.mint;
+                    const amount = parseFloat(info.tokenAmount.uiAmountString || '0');
+                    if (stablecoins.has(mint)) {
+                        totalUsd += amount;
+                    }
+                    // Non-stablecoin SPL tokens are excluded since we can't reliably price them all
+                }
+
+                if (el) el.textContent = '$' + totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             } catch (err) {
-                console.error('Failed to fetch payout wallet USDC:', err);
+                console.error('Failed to fetch payout wallet balance:', err);
                 if (el) el.textContent = 'Unavailable';
             }
         }
