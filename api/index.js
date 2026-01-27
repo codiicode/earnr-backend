@@ -493,42 +493,41 @@ module.exports = async function(req, res) {
       var PAYOUT_WALLET = 'CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL';
       var RPC = 'https://api.mainnet-beta.solana.com';
       try {
-        var https = require('https');
-        function rpcCall(method, params) {
-          return new Promise(function(resolve, reject) {
-            var body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params });
-            var req = https.request(RPC, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, function(resp) {
-              var data = '';
-              resp.on('data', function(chunk) { data += chunk; });
-              resp.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
-            });
-            req.on('error', reject);
-            req.write(body);
-            req.end();
-          });
-        }
+        // Use native fetch (Node 18+) for all requests
+        var rpcFetch = function(method, params) {
+          return fetch(RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params })
+          }).then(function(r) { return r.json(); });
+        };
 
-        var solRes = await rpcCall('getBalance', [PAYOUT_WALLET]);
-        var tokensRes = await rpcCall('getTokenAccountsByOwner', [
-          PAYOUT_WALLET,
-          { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
-          { encoding: 'jsonParsed' }
+        // Fetch SOL balance, token accounts, and SOL price in parallel
+        var results = await Promise.allSettled([
+          rpcFetch('getBalance', [PAYOUT_WALLET]),
+          rpcFetch('getTokenAccountsByOwner', [
+            PAYOUT_WALLET,
+            { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
+            { encoding: 'jsonParsed' }
+          ]),
+          fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+            headers: { 'Accept': 'application/json', 'User-Agent': 'earnr-xyz/1.0' }
+          }).then(function(r) { return r.json(); }),
+          // Fallback price source
+          fetch('https://price.jup.ag/v6/price?ids=SOL', {
+            headers: { 'Accept': 'application/json' }
+          }).then(function(r) { return r.json(); })
         ]);
 
-        var solBalance = (solRes.result?.value || 0) / 1e9;
+        var solRes = results[0].status === 'fulfilled' ? results[0].value : null;
+        var tokensRes = results[1].status === 'fulfilled' ? results[1].value : null;
+        var cgPrice = results[2].status === 'fulfilled' ? results[2].value : null;
+        var jupPrice = results[3].status === 'fulfilled' ? results[3].value : null;
 
-        // Fetch SOL price
-        var solPrice = 0;
-        try {
-          var priceData = await new Promise(function(resolve, reject) {
-            https.get('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', function(resp) {
-              var data = '';
-              resp.on('data', function(chunk) { data += chunk; });
-              resp.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
-            }).on('error', reject);
-          });
-          solPrice = priceData?.solana?.usd || 0;
-        } catch(e) { /* price fetch failed, skip SOL value */ }
+        var solBalance = (solRes?.result?.value || 0) / 1e9;
+
+        // Try CoinGecko first, then Jupiter as fallback
+        var solPrice = cgPrice?.solana?.usd || jupPrice?.data?.SOL?.price || 0;
 
         var totalUsd = solBalance * solPrice;
 
@@ -537,11 +536,11 @@ module.exports = async function(req, res) {
           'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': true  // USDT
         };
 
-        var tokenAccounts = tokensRes.result?.value || [];
+        var tokenAccounts = tokensRes?.result?.value || [];
         for (var t = 0; t < tokenAccounts.length; t++) {
           var info = tokenAccounts[t].account.data.parsed.info;
-          var amount = parseFloat(info.tokenAmount.uiAmountString || '0');
-          if (stablecoins[info.mint]) totalUsd += amount;
+          var amt = parseFloat(info.tokenAmount.uiAmountString || '0');
+          if (stablecoins[info.mint]) totalUsd += amt;
         }
 
         return res.status(200).json({
