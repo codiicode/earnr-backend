@@ -907,6 +907,24 @@ module.exports = async function(req, res) {
       }
     }
 
+    // Serve terms page
+    if (p === '/terms' || p === '/terms.html') {
+      res.setHeader('Content-Type', 'text/html');
+      var termsPath = path.join(process.cwd(), 'public', 'terms.html');
+      if (fs.existsSync(termsPath)) {
+        return res.status(200).send(fs.readFileSync(termsPath, 'utf8'));
+      }
+    }
+
+    // Serve privacy page
+    if (p === '/privacy' || p === '/privacy.html') {
+      res.setHeader('Content-Type', 'text/html');
+      var privacyPath = path.join(process.cwd(), 'public', 'privacy.html');
+      if (fs.existsSync(privacyPath)) {
+        return res.status(200).send(fs.readFileSync(privacyPath, 'utf8'));
+      }
+    }
+
     // Serve admin page
     if (p === '/admin') {
       res.setHeader('Content-Type', 'text/html');
