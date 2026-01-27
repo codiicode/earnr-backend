@@ -711,7 +711,24 @@
     </div>
 
     <script>
-        let adminKey = localStorage.getItem('earnr_admin_key') || '';
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        function safeUrl(url) {
+            if (!url) return '';
+            try {
+                const parsed = new URL(url);
+                if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return escapeHtml(url);
+            } catch (e) {}
+            return '';
+        }
+        function safeAttr(val) {
+            return String(val || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        let adminKey = sessionStorage.getItem('earnr_admin_key') || '';
         let allSubmissions = [];
         let allTasks = [];
         let currentFilter = 'PENDING';
@@ -724,7 +741,7 @@
             banner.id = 'keyWarningBanner';
             banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ff4757;color:#fff;padding:1rem;text-align:center;z-index:9999;font-size:0.9rem;';
             banner.innerHTML = `
-                <strong>WARNING: Wrong Supabase key!</strong> Current: ${keyRole} (need: service_role)<br>
+                <strong>WARNING: Wrong Supabase key!</strong> Current: ${escapeHtml(keyRole)} (need: service_role)<br>
                 <span style="font-size:0.8rem">Approvals will NOT persist. Fix: Supabase Dashboard → Settings → API → Copy service_role key → Vercel → Environment Variables → Update SUPABASE_SERVICE_KEY → Redeploy</span>
                 <button onclick="this.parentElement.remove()" style="margin-left:1rem;background:#fff;color:#ff4757;border:none;padding:0.25rem 0.5rem;cursor:pointer;">X</button>
             `;
@@ -756,7 +773,7 @@
 
                 if (res.status === 401) {
                     showAuthError('Invalid admin key');
-                    localStorage.removeItem('earnr_admin_key');
+                    sessionStorage.removeItem('earnr_admin_key');
                     return;
                 }
 
@@ -767,7 +784,7 @@
                 }
 
                 // Success - save key and show panel
-                localStorage.setItem('earnr_admin_key', adminKey);
+                sessionStorage.setItem('earnr_admin_key', adminKey);
                 document.getElementById('authPanel').classList.remove('active');
                 document.getElementById('mainPanel').classList.add('active');
                 document.getElementById('logoutBtn').style.display = 'block';
@@ -796,7 +813,7 @@
         }
 
         function logout() {
-            localStorage.removeItem('earnr_admin_key');
+            sessionStorage.removeItem('earnr_admin_key');
             adminKey = '';
             document.getElementById('authPanel').classList.add('active');
             document.getElementById('mainPanel').classList.remove('active');
@@ -847,11 +864,11 @@
                     <div class="submission-header">
                         <div class="submission-user">
                             <div class="submission-avatar">
-                                ${sub.users?.avatar_url ? `<img src="${sub.users.avatar_url}">` : ''}
+                                ${sub.users?.avatar_url ? `<img src="${safeUrl(sub.users.avatar_url)}">` : ''}
                             </div>
                             <div>
-                                <div class="submission-username">${sub.users?.display_name || sub.users?.username || 'Unknown'}</div>
-                                <div class="submission-handle">@${sub.users?.username || 'unknown'}</div>
+                                <div class="submission-username">${escapeHtml(sub.users?.display_name || sub.users?.username || 'Unknown')}</div>
+                                <div class="submission-handle">@${escapeHtml(sub.users?.username || 'unknown')}</div>
                             </div>
                         </div>
                         <div class="submission-status ${sub.status.toLowerCase()}">${sub.status}</div>
@@ -859,7 +876,7 @@
                     <div class="submission-details">
                         <div class="detail-item">
                             <div class="detail-label">TASK</div>
-                            <div class="detail-value">${sub.tasks?.title || 'Unknown Task'}</div>
+                            <div class="detail-value">${escapeHtml(sub.tasks?.title || 'Unknown Task')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">REWARD</div>
@@ -867,11 +884,11 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">WALLET ADDRESS</div>
-                            <div class="detail-value">${sub.users?.wallet_address || '<span style="color:var(--red)">Not set</span>'}</div>
+                            <div class="detail-value">${sub.users?.wallet_address ? escapeHtml(sub.users.wallet_address) : '<span style="color:var(--red)">Not set</span>'}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">PROOF URL</div>
-                            <div class="detail-value"><a href="${sub.proof_url}" target="_blank">${sub.proof_url}</a></div>
+                            <div class="detail-value"><a href="${safeUrl(sub.proof_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(sub.proof_url)}</a></div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">SUBMITTED</div>
@@ -880,19 +897,19 @@
                         ${sub.tx_hash ? `
                         <div class="detail-item" style="grid-column: 1 / -1;">
                             <div class="detail-label">TX HASH</div>
-                            <div class="detail-value"><a href="https://solscan.io/tx/${sub.tx_hash}" target="_blank" style="word-break: break-all;">${sub.tx_hash}</a></div>
+                            <div class="detail-value"><a href="https://solscan.io/tx/${safeAttr(sub.tx_hash)}" target="_blank" rel="noopener noreferrer" style="word-break: break-all;">${escapeHtml(sub.tx_hash)}</a></div>
                         </div>
                         ` : ''}
                         ${sub.comment ? `
                         <div class="detail-item" style="grid-column: 1 / -1;">
                             <div class="detail-label">COMMENT</div>
-                            <div class="detail-value">${sub.comment}</div>
+                            <div class="detail-value">${escapeHtml(sub.comment)}</div>
                         </div>
                         ` : ''}
                         ${sub.rejection_reason ? `
                         <div class="detail-item" style="grid-column: 1 / -1;">
                             <div class="detail-label" style="color: var(--red);">REJECTION REASON</div>
-                            <div class="detail-value" style="color: var(--red);">${sub.rejection_reason}</div>
+                            <div class="detail-value" style="color: var(--red);">${escapeHtml(sub.rejection_reason)}</div>
                         </div>
                         ` : ''}
                     </div>
@@ -1200,10 +1217,10 @@
                 <div class="task-card ${task.is_active ? '' : 'inactive'}" id="task-${task.id}">
                     <div class="task-info">
                         <h4>
-                            ${task.title}
+                            ${escapeHtml(task.title)}
                             <span class="task-badge ${task.is_active ? 'active' : 'inactive'}">${task.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
                         </h4>
-                        <p>${task.description || 'No description'}</p>
+                        <p>${escapeHtml(task.description || 'No description')}</p>
                         <div class="task-meta">
                             <div class="task-meta-item reward">
                                 <span>Reward:</span>
@@ -1211,11 +1228,11 @@
                             </div>
                             <div class="task-meta-item">
                                 <span>Category:</span>
-                                <span class="value">${task.category}</span>
+                                <span class="value">${escapeHtml(task.category)}</span>
                             </div>
                             <div class="task-meta-item">
                                 <span>Difficulty:</span>
-                                <span class="value">${task.difficulty}</span>
+                                <span class="value">${escapeHtml(task.difficulty)}</span>
                             </div>
                             <div class="task-meta-item">
                                 <span>Slots:</span>
@@ -1230,7 +1247,7 @@
                             ${task.task_url ? `
                             <div class="task-meta-item">
                                 <span>URL:</span>
-                                <a href="${task.task_url}" target="_blank" class="value" style="color:var(--green);">View Task ↗</a>
+                                <a href="${safeUrl(task.task_url)}" target="_blank" rel="noopener noreferrer" class="value" style="color:var(--green);">View Task ↗</a>
                             </div>
                             ` : ''}
                         </div>
