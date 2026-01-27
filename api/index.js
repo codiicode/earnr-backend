@@ -488,6 +488,74 @@ module.exports = async function(req, res) {
       }
     }
 
+    // Payout wallet balance - fetch SOL + stablecoin value server-side
+    if (p === '/api/wallet-balance') {
+      var PAYOUT_WALLET = 'CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL';
+      var RPC = 'https://api.mainnet-beta.solana.com';
+      try {
+        var https = require('https');
+        function rpcCall(method, params) {
+          return new Promise(function(resolve, reject) {
+            var body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params });
+            var req = https.request(RPC, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, function(resp) {
+              var data = '';
+              resp.on('data', function(chunk) { data += chunk; });
+              resp.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+            });
+            req.on('error', reject);
+            req.write(body);
+            req.end();
+          });
+        }
+
+        var solRes = await rpcCall('getBalance', [PAYOUT_WALLET]);
+        var tokensRes = await rpcCall('getTokenAccountsByOwner', [
+          PAYOUT_WALLET,
+          { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
+          { encoding: 'jsonParsed' }
+        ]);
+
+        var solBalance = (solRes.result?.value || 0) / 1e9;
+
+        // Fetch SOL price
+        var solPrice = 0;
+        try {
+          var priceData = await new Promise(function(resolve, reject) {
+            https.get('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', function(resp) {
+              var data = '';
+              resp.on('data', function(chunk) { data += chunk; });
+              resp.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+            }).on('error', reject);
+          });
+          solPrice = priceData?.solana?.usd || 0;
+        } catch(e) { /* price fetch failed, skip SOL value */ }
+
+        var totalUsd = solBalance * solPrice;
+
+        var stablecoins = {
+          'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': true, // USDC
+          'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': true  // USDT
+        };
+
+        var tokenAccounts = tokensRes.result?.value || [];
+        for (var t = 0; t < tokenAccounts.length; t++) {
+          var info = tokenAccounts[t].account.data.parsed.info;
+          var amount = parseFloat(info.tokenAmount.uiAmountString || '0');
+          if (stablecoins[info.mint]) totalUsd += amount;
+        }
+
+        return res.status(200).json({
+          totalUsd: totalUsd,
+          solBalance: solBalance,
+          solPrice: solPrice,
+          wallet: PAYOUT_WALLET
+        });
+      } catch (err) {
+        console.error('Wallet balance error:', err);
+        return res.status(500).json({ error: 'Failed to fetch wallet balance' });
+      }
+    }
+
     // Payouts API - Fetch approved submissions from database
     if (p === '/api/payouts') {
       try {

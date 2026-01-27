@@ -1866,7 +1866,7 @@
                     <div class="stat-card" style="flex:0 0 auto;min-width:180px;">
                         <div class="stat-label">Wallet Balance</div>
                         <div class="stat-value" id="payout-wallet-usdc" style="font-size:2rem;">...</div>
-                        <div class="stat-change">USDC available</div>
+                        <div class="stat-change">total value</div>
                     </div>
                 </div>
 
@@ -2927,56 +2927,15 @@ function showPopup(message, isError) {
         }
 
         async function fetchPayoutWalletUSDC() {
-            const wallet = 'CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL';
-            const rpc = 'https://api.mainnet-beta.solana.com';
             const el = document.getElementById('payout-wallet-usdc');
             try {
-                // Fetch SOL balance, all token accounts, and SOL price in parallel
-                const [solRes, tokensRes, priceRes] = await Promise.all([
-                    fetch(rpc, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [wallet] })
-                    }),
-                    fetch(rpc, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0', id: 2,
-                            method: 'getTokenAccountsByOwner',
-                            params: [wallet, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }]
-                        })
-                    }),
-                    fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
-                ]);
-
-                const solData = await solRes.json();
-                const tokensData = await tokensRes.json();
-                const priceData = await priceRes.json();
-
-                // SOL balance in USD
-                const solBalance = (solData.result?.value || 0) / 1e9;
-                const solPrice = priceData?.solana?.usd || 0;
-                let totalUsd = solBalance * solPrice;
-
-                // Stablecoin mints (value = 1 USD per token)
-                const stablecoins = new Set([
-                    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-                    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
-                ]);
-
-                const tokenAccounts = tokensData.result?.value || [];
-                for (const a of tokenAccounts) {
-                    const info = a.account.data.parsed.info;
-                    const mint = info.mint;
-                    const amount = parseFloat(info.tokenAmount.uiAmountString || '0');
-                    if (stablecoins.has(mint)) {
-                        totalUsd += amount;
-                    }
-                    // Non-stablecoin SPL tokens are excluded since we can't reliably price them all
+                const res = await fetch('/api/wallet-balance');
+                const data = await res.json();
+                if (data.totalUsd !== undefined) {
+                    el.textContent = '$' + data.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } else {
+                    if (el) el.textContent = 'Unavailable';
                 }
-
-                if (el) el.textContent = '$' + totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             } catch (err) {
                 console.error('Failed to fetch payout wallet balance:', err);
                 if (el) el.textContent = 'Unavailable';
