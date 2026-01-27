@@ -889,6 +889,12 @@
                             <div class="detail-value">${sub.comment}</div>
                         </div>
                         ` : ''}
+                        ${sub.rejection_reason ? `
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label" style="color: var(--red);">REJECTION REASON</div>
+                            <div class="detail-value" style="color: var(--red);">${sub.rejection_reason}</div>
+                        </div>
+                        ` : ''}
                     </div>
                     ${sub.status === 'PENDING' ? `
                     <div class="submission-actions">
@@ -995,16 +1001,39 @@
         }
 
         async function rejectSubmission(id) {
-            if (!confirm('Reject this submission?')) return;
+            // Get submission details for context
+            const sub = allSubmissions.find(s => s.id === id);
+            const taskTitle = sub?.tasks?.title || 'Task';
+            const username = sub?.users?.username || sub?.users?.display_name || 'User';
+
+            // Prompt for rejection reason
+            const reason = prompt(
+                `REJECT SUBMISSION\n\n` +
+                `Task: ${taskTitle}\n` +
+                `User: ${username}\n\n` +
+                `Enter the reason for rejection (this will be shown to the user):`
+            );
+
+            // User cancelled
+            if (reason === null) return;
+
+            if (!reason.trim()) {
+                alert('Please provide a reason for rejection.');
+                return;
+            }
 
             const card = document.getElementById(`submission-${id}`);
             if (card) card.style.opacity = '0.5';
 
             try {
-                console.log('Rejecting submission:', id);
+                console.log('Rejecting submission:', id, 'with reason:', reason);
                 const res = await fetch(`/api/admin/submissions/${id}/reject`, {
                     method: 'POST',
-                    headers: { 'X-Admin-Key': adminKey }
+                    headers: {
+                        'X-Admin-Key': adminKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ rejection_reason: reason })
                 });
 
                 const data = await res.json();
