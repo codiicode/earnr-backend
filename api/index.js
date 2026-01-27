@@ -1143,22 +1143,28 @@ module.exports = async function(req, res) {
       }
     }
 
-    var user = await getUser();
     res.setHeader('Content-Type', 'text/html');
 
-    if (user) {
-      var dashboardPath = path.join(process.cwd(), 'public', 'dashboard.html');
-      if (fs.existsSync(dashboardPath)) {
-        return res.status(200).send(fs.readFileSync(dashboardPath, 'utf8'));
+    if (p === '/' || p === '') {
+      var user = await getUser();
+      if (user) {
+        var dashboardPath = path.join(process.cwd(), 'public', 'dashboard.html');
+        if (fs.existsSync(dashboardPath)) {
+          return res.status(200).send(fs.readFileSync(dashboardPath, 'utf8'));
+        }
+      }
+      var landingPath = path.join(process.cwd(), 'public', 'index.html');
+      if (fs.existsSync(landingPath)) {
+        return res.status(200).send(fs.readFileSync(landingPath, 'utf8'));
       }
     }
 
-    var landingPath = path.join(process.cwd(), 'public', 'index.html');
-    if (fs.existsSync(landingPath)) {
-      return res.status(200).send(fs.readFileSync(landingPath, 'utf8'));
+    // Everything else is a 404
+    var notFoundPath = path.join(process.cwd(), 'public', '404.html');
+    if (fs.existsSync(notFoundPath)) {
+      return res.status(404).send(fs.readFileSync(notFoundPath, 'utf8'));
     }
-
-    return res.status(200).send('EARNR API');
+    return res.status(404).send('Page not found');
   } catch(err) {
     console.error(err);
     return res.status(500).json({error: err.message});
