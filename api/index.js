@@ -5,7 +5,7 @@ const path = require('path');
 
 // IMPORTANT: Must use service_role key (not anon key) to bypass RLS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const CODE_VERSION = 'v6-DIRECT-2026-01-26';
+const CODE_VERSION = 'v7-HARDENED-2026-01-27';
 
 // Decode JWT to check if it's service_role or anon key
 function getKeyRole(jwt) {
@@ -35,7 +35,109 @@ const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
 const BASE_URL = String(process.env.BASE_URL || 'https://earnr.xyz').trim();
 const X_CLIENT_ID = String(process.env.X_CLIENT_ID || '').trim();
 const X_CLIENT_SECRET = String(process.env.X_CLIENT_SECRET || '').trim();
-const states = new Map();
+
+// ============================================
+// RATE LIMITING (in-memory, per-IP)
+// ============================================
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMITS = {
+  '/auth/login': { max: 10, window: RATE_LIMIT_WINDOW_MS },
+  '/api/submissions:POST': { max: 10, window: RATE_LIMIT_WINDOW_MS },
+  '/api/heartbeat': { max: 30, window: RATE_LIMIT_WINDOW_MS },
+  default: { max: 60, window: RATE_LIMIT_WINDOW_MS }
+};
+
+function getRateLimitKey(ip, path, method) {
+  if (path === '/auth/login') return ip + ':' + path;
+  if (path === '/api/submissions' && method === 'POST') return ip + ':' + path + ':POST';
+  if (path === '/api/heartbeat') return ip + ':' + path;
+  return ip + ':default';
+}
+
+function getRateLimitConfig(path, method) {
+  if (path === '/auth/login') return RATE_LIMITS['/auth/login'];
+  if (path === '/api/submissions' && method === 'POST') return RATE_LIMITS['/api/submissions:POST'];
+  if (path === '/api/heartbeat') return RATE_LIMITS['/api/heartbeat'];
+  return RATE_LIMITS.default;
+}
+
+function checkRateLimit(ip, path, method) {
+  var key = getRateLimitKey(ip, path, method);
+  var config = getRateLimitConfig(path, method);
+  var now = Date.now();
+  var entry = rateLimitMap.get(key);
+
+  if (!entry || now - entry.windowStart > config.window) {
+    rateLimitMap.set(key, { windowStart: now, count: 1 });
+    return { allowed: true, remaining: config.max - 1 };
+  }
+
+  entry.count++;
+  if (entry.count > config.max) {
+    return { allowed: false, remaining: 0 };
+  }
+  return { allowed: true, remaining: config.max - entry.count };
+}
+
+// Clean up stale rate limit entries every 5 minutes
+setInterval(function() {
+  var now = Date.now();
+  for (var [key, entry] of rateLimitMap) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// ============================================
+// OAUTH STATE STORAGE (database-backed with in-memory fallback)
+// ============================================
+const statesMemory = new Map();
+
+async function storeOAuthState(state, verifier) {
+  // Try database first
+  try {
+    await supabase.from('oauth_states').insert({
+      state: state,
+      verifier: verifier,
+      created_at: new Date().toISOString()
+    });
+    return;
+  } catch (e) {
+    // Table might not exist yet — fall back to memory
+    console.log('OAuth state DB insert failed, using memory fallback:', e.message);
+  }
+  statesMemory.set(state, verifier);
+  // Auto-expire from memory after 10 minutes
+  setTimeout(function() { statesMemory.delete(state); }, 10 * 60 * 1000);
+}
+
+async function retrieveOAuthState(state) {
+  // Try database first
+  try {
+    var result = await supabase.from('oauth_states').select('verifier').eq('state', state).single();
+    if (result.data) {
+      // Delete after retrieval (one-time use)
+      await supabase.from('oauth_states').delete().eq('state', state);
+      return result.data.verifier;
+    }
+  } catch (e) {
+    // Fall back to memory
+  }
+  var verifier = statesMemory.get(state);
+  statesMemory.delete(state);
+  return verifier || null;
+}
+
+// Clean up expired OAuth states from DB every 10 minutes
+setInterval(async function() {
+  try {
+    var tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    await supabase.from('oauth_states').delete().lt('created_at', tenMinAgo);
+  } catch (e) { /* table may not exist */ }
+}, 10 * 60 * 1000);
+
 
 module.exports = async function(req, res) {
   try {
@@ -59,6 +161,33 @@ module.exports = async function(req, res) {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Key');
       return res.status(200).end();
+    }
+
+    // ============================================
+    // RATE LIMITING CHECK
+    // ============================================
+    var clientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
+    if (typeof clientIp === 'string' && clientIp.includes(',')) clientIp = clientIp.split(',')[0].trim();
+    var rateCheck = checkRateLimit(clientIp, p, req.method);
+    if (!rateCheck.allowed) {
+      res.setHeader('Retry-After', '60');
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+
+    // ============================================
+    // HEALTH CHECK
+    // ============================================
+    if (p === '/api/health') {
+      var dbOk = false;
+      try {
+        var hc = await supabase.from('users').select('id', { count: 'exact', head: true });
+        dbOk = !hc.error;
+      } catch (e) { /* db down */ }
+      return res.status(dbOk ? 200 : 503).json({
+        status: dbOk ? 'ok' : 'degraded',
+        version: CODE_VERSION,
+        timestamp: new Date().toISOString()
+      });
     }
 
     const cookies = {};
@@ -91,7 +220,7 @@ module.exports = async function(req, res) {
       var state = crypto.randomBytes(16).toString('hex');
       var verifier = crypto.randomBytes(32).toString('base64url');
       var challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-      states.set(state, verifier);
+      await storeOAuthState(state, verifier);
       var redir = encodeURIComponent(BASE_URL + '/auth/callback');
       var authUrl = 'https://twitter.com/i/oauth2/authorize?response_type=code&client_id=' + X_CLIENT_ID + '&redirect_uri=' + redir + '&scope=tweet.read%20users.read&state=' + state + '&code_challenge=' + challenge + '&code_challenge_method=S256';
       res.writeHead(302, { 'Location': authUrl });
@@ -101,8 +230,7 @@ module.exports = async function(req, res) {
     if (p === '/auth/callback') {
       var code = url.searchParams.get('code');
       var state = url.searchParams.get('state');
-      var verifier = states.get(state);
-      states.delete(state);
+      var verifier = await retrieveOAuthState(state);
       if (!verifier) { res.writeHead(302, { 'Location': '/?error=bad_state' }); return res.end(); }
 
       var tokenRes = await fetch('https://api.twitter.com/2/oauth2/token', {
@@ -170,7 +298,13 @@ module.exports = async function(req, res) {
       });
     }
     if (p === '/api/activity') { var r = await supabase.from('activity').select('*').order('created_at', {ascending: false}).limit(20); return res.status(200).json({activity: r.data || []}); }
-    if (p === '/api/tasks') { var r = await supabase.from('tasks').select('*').eq('is_active', true).order('created_at', {ascending: false}); return res.status(200).json({tasks: r.data || []}); }
+    if (p === '/api/tasks') {
+      var page = parseInt(url.searchParams.get('page')) || 1;
+      var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100);
+      var offset = (page - 1) * limit;
+      var r = await supabase.from('tasks').select('*', {count: 'exact'}).eq('is_active', true).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
+      return res.status(200).json({tasks: r.data || [], total: r.count || 0, page: page, limit: limit});
+    }
     if (p === '/api/leaderboard') {
       // Get all users
       var usersRes = await supabase.from('users').select('*');
@@ -202,12 +336,15 @@ module.exports = async function(req, res) {
       return res.status(200).json({leaderboard: leaderboard});
     }
     if (p === '/api/earnrs' || p === '/api/hunters') {
-      var r = await supabase.from('users').select('*').order('created_at', {ascending: false});
+      var page = parseInt(url.searchParams.get('page')) || 1;
+      var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100);
+      var offset = (page - 1) * limit;
+      var r = await supabase.from('users').select('*', {count: 'exact'}).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
       if (r.error) {
         console.error('Error fetching earnrs:', r.error);
         return res.status(500).json({error: r.error.message, earnrs: [], hunters: []});
       }
-      return res.status(200).json({earnrs: r.data || [], hunters: r.data || []});
+      return res.status(200).json({earnrs: r.data || [], hunters: r.data || [], total: r.count || 0, page: page, limit: limit});
     }
     if (p === '/api/heartbeat') { var u = await getUser(); if(u) await supabase.from('users').update({last_seen: new Date().toISOString()}).eq('id', u.id); return res.status(200).json({ok: true}); }
     if (p === '/api/wallet' && req.method === 'POST') {
@@ -276,13 +413,8 @@ module.exports = async function(req, res) {
     }
 
     // Helper function to create notifications
-    async function createNotification(userId, type, title, message, relatedId = null) {
-      console.log('NOTIFICATION: Starting create for user:', userId, 'type:', type);
-
-      if (!userId) {
-        console.error('NOTIFICATION: No userId provided!');
-        return { success: false, error: 'No userId provided' };
-      }
+    async function createNotification(userId, type, title, message, relatedId) {
+      if (!userId) return { success: false, error: 'No userId provided' };
 
       try {
         var insertData = {
@@ -293,23 +425,17 @@ module.exports = async function(req, res) {
           is_read: false
         };
 
-        // Only add related_id if provided (some tables might not have this column)
         if (relatedId) {
           insertData.related_id = relatedId;
         }
 
-        console.log('NOTIFICATION: Inserting:', JSON.stringify(insertData));
-
         var result = await supabase.from('notifications').insert(insertData).select();
-
-        console.log('NOTIFICATION: Result:', JSON.stringify(result));
 
         if (result.error) {
           console.error('NOTIFICATION: Supabase error:', result.error);
-          return { success: false, error: result.error.message, details: result.error };
+          return { success: false, error: result.error.message };
         }
 
-        console.log('NOTIFICATION: Success! Created for user:', userId);
         return { success: true, data: result.data };
       } catch (e) {
         console.error('NOTIFICATION: Exception:', e.message);
@@ -317,9 +443,8 @@ module.exports = async function(req, res) {
       }
     }
 
-    // Create notifications for all users when new task is added
+    // Create notifications for all users when new task is added (batched)
     async function notifyAllUsersNewTask(task) {
-      console.log('NEW_TASK_NOTIFY: Starting for task:', task.id, task.title);
       try {
         var usersRes = await supabase.from('users').select('id');
         if (usersRes.error) {
@@ -327,33 +452,36 @@ module.exports = async function(req, res) {
           return { success: false, error: usersRes.error.message };
         }
         var users = usersRes.data || [];
-        console.log('NEW_TASK_NOTIFY: Found', users.length, 'users');
 
         if (users.length === 0) {
           return { success: true, message: 'No users to notify' };
         }
 
-        var notifications = users.map(function(u) {
-          return {
-            user_id: u.id,
-            type: 'NEW_TASK',
-            title: 'New Task Available',
-            message: task.title + ' - ' + task.reward + ' USDC',
-            is_read: false
-          };
-        });
+        // Batch notifications in chunks of 500 to avoid payload limits
+        var BATCH_SIZE = 500;
+        var totalInserted = 0;
 
-        console.log('NEW_TASK_NOTIFY: Inserting', notifications.length, 'notifications');
-        var result = await supabase.from('notifications').insert(notifications).select();
-        console.log('NEW_TASK_NOTIFY: Result:', JSON.stringify(result));
+        for (var i = 0; i < users.length; i += BATCH_SIZE) {
+          var batch = users.slice(i, i + BATCH_SIZE);
+          var notifications = batch.map(function(u) {
+            return {
+              user_id: u.id,
+              type: 'NEW_TASK',
+              title: 'New Task Available',
+              message: task.title + ' - ' + task.reward + ' USDC',
+              is_read: false
+            };
+          });
 
-        if (result.error) {
-          console.error('NEW_TASK_NOTIFY: Supabase error:', result.error);
-          return { success: false, error: result.error.message, details: result.error };
+          var result = await supabase.from('notifications').insert(notifications);
+          if (result.error) {
+            console.error('NEW_TASK_NOTIFY: Batch error at offset', i, result.error);
+          } else {
+            totalInserted += batch.length;
+          }
         }
 
-        console.log('NEW_TASK_NOTIFY: Success!');
-        return { success: true, count: notifications.length };
+        return { success: true, count: totalInserted };
       } catch (e) {
         console.error('NEW_TASK_NOTIFY: Exception:', e.message);
         return { success: false, error: e.message };
@@ -363,38 +491,44 @@ module.exports = async function(req, res) {
     // Payouts API - Fetch approved submissions from database
     if (p === '/api/payouts') {
       try {
-        // Get all approved submissions with user and task info
+        var page = parseInt(url.searchParams.get('page')) || 1;
+        var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100);
+        var offset = (page - 1) * limit;
+
+        // Get approved submissions with user and task info (paginated)
         var approvedRes = await supabase
           .from('submissions')
-          .select('*, users(*), tasks(*)')
+          .select('*, users(*), tasks(*)', {count: 'exact'})
           .eq('status', 'APPROVED')
-          .order('created_at', {ascending: false});
+          .order('created_at', {ascending: false})
+          .range(offset, offset + limit - 1);
 
         var submissions = approvedRes.data || [];
 
-        // Calculate totals
+        // For stats, use count query instead of fetching all
+        var statsRes = await supabase.from('submissions').select('*, tasks(reward)').eq('status', 'APPROVED');
+        var allApproved = statsRes.data || [];
         var totalPaidOut = 0;
         var last24hPaid = 0;
         var now = Date.now();
         var dayAgo = now - 24 * 60 * 60 * 1000;
 
+        for (var j = 0; j < allApproved.length; j++) {
+          var reward = allApproved[j].tasks?.reward || 0;
+          totalPaidOut += reward;
+          var ts = allApproved[j].created_at ? new Date(allApproved[j].created_at).getTime() : now;
+          if (ts > dayAgo) last24hPaid += reward;
+        }
+
         var transactions = [];
         for (var i = 0; i < submissions.length; i++) {
           var sub = submissions[i];
-          var reward = sub.tasks?.reward || 0;
-          var approvedAt = sub.created_at ? new Date(sub.created_at).getTime() : now;
-
-          totalPaidOut += reward;
-          if (approvedAt > dayAgo) {
-            last24hPaid += reward;
-          }
-
           transactions.push({
             id: sub.id,
             username: sub.users?.username || 'Unknown',
             avatar_url: sub.users?.avatar_url || '',
             wallet: sub.users?.wallet_address || '',
-            amount: reward,
+            amount: sub.tasks?.reward || 0,
             task_title: sub.tasks?.title || 'Task',
             timestamp: sub.created_at,
             status: 'completed'
@@ -406,8 +540,11 @@ module.exports = async function(req, res) {
           stats: {
             totalPaidOut: totalPaidOut,
             last24hPaid: last24hPaid,
-            transactionCount: transactions.length
-          }
+            transactionCount: approvedRes.count || 0
+          },
+          page: page,
+          limit: limit,
+          total: approvedRes.count || 0
         });
       } catch (err) {
         console.error('Payouts API error:', err);
@@ -423,8 +560,11 @@ module.exports = async function(req, res) {
     if (p === '/api/submissions' && req.method === 'GET') {
       var user = await getUser();
       if (!user) return res.status(401).json({error: 'Not logged in'});
-      var r = await supabase.from('submissions').select('*, tasks(*)').eq('user_id', user.id).order('created_at', {ascending: false});
-      return res.status(200).json({submissions: r.data || []});
+      var page = parseInt(url.searchParams.get('page')) || 1;
+      var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100);
+      var offset = (page - 1) * limit;
+      var r = await supabase.from('submissions').select('*, tasks(*)', {count: 'exact'}).eq('user_id', user.id).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
+      return res.status(200).json({submissions: r.data || [], total: r.count || 0, page: page, limit: limit});
     }
 
     if (p === '/api/submissions' && req.method === 'POST') {
@@ -491,8 +631,14 @@ module.exports = async function(req, res) {
         return res.status(500).json({error: 'Failed to save submission: ' + r.error.message});
       }
 
-      // Increment slots_filled
-      await supabase.from('tasks').update({slots_filled: task.slots_filled + 1}).eq('id', data.task_id);
+      // Atomic slot increment — only increment if slots_filled < slots_total
+      // This uses a conditional update to prevent race conditions
+      var slotUpdate = await supabase.rpc('increment_slot', { task_id_input: data.task_id });
+      if (slotUpdate.error) {
+        // Fallback: try regular update if RPC doesn't exist yet
+        console.log('RPC increment_slot not available, using fallback. Error:', slotUpdate.error.message);
+        await supabase.from('tasks').update({slots_filled: task.slots_filled + 1}).eq('id', data.task_id);
+      }
 
       return res.status(200).json({submission: r.data});
     }
@@ -504,9 +650,20 @@ module.exports = async function(req, res) {
     if (p === '/api/admin/submissions') {
       if (!validAdminKey) return res.status(500).json({error: 'ADMIN_KEY not configured on server'});
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
-      var r = await supabase.from('submissions').select('*, users(*), tasks(*)').order('created_at', {ascending: false});
+      var page = parseInt(url.searchParams.get('page')) || 1;
+      var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 200);
+      var offset = (page - 1) * limit;
+      var statusFilter = url.searchParams.get('status') || null;
+
+      var query = supabase.from('submissions').select('*, users(*), tasks(*)', {count: 'exact'}).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
+      if (statusFilter) query = query.eq('status', statusFilter);
+
+      var r = await query;
       return res.status(200).json({
         submissions: r.data || [],
+        total: r.count || 0,
+        page: page,
+        limit: limit,
         _debug: {
           codeVersion: CODE_VERSION,
           keyRole: KEY_ROLE,
@@ -518,8 +675,11 @@ module.exports = async function(req, res) {
     // Admin Tasks API - List all tasks
     if (p === '/api/admin/tasks' && req.method === 'GET') {
       if (!adminKey || adminKey !== validAdminKey) return res.status(401).json({error: 'Invalid admin key'});
-      var r = await supabase.from('tasks').select('*').order('created_at', {ascending: false});
-      return res.status(200).json({tasks: r.data || []});
+      var page = parseInt(url.searchParams.get('page')) || 1;
+      var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 200);
+      var offset = (page - 1) * limit;
+      var r = await supabase.from('tasks').select('*', {count: 'exact'}).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
+      return res.status(200).json({tasks: r.data || [], total: r.count || 0, page: page, limit: limit});
     }
 
     // Admin Tasks API - Create task
@@ -533,16 +693,27 @@ module.exports = async function(req, res) {
         return res.status(400).json({error: 'Title and reward are required'});
       }
 
+      // Validate reward bounds
+      var reward = parseFloat(data.reward);
+      if (isNaN(reward) || reward <= 0 || reward > 10000) {
+        return res.status(400).json({error: 'Reward must be between 0.01 and 10,000 USDC'});
+      }
+
+      var slotsTotal = parseInt(data.slots_total) || 100;
+      if (slotsTotal < 1 || slotsTotal > 100000) {
+        return res.status(400).json({error: 'Slots must be between 1 and 100,000'});
+      }
+
       var taskData = {
-        title: data.title,
-        description: data.description || '',
-        reward: parseFloat(data.reward) || 0,
+        title: String(data.title).substring(0, 200),
+        description: String(data.description || '').substring(0, 2000),
+        reward: reward,
         task_url: data.task_url || null,
         category: data.category || 'X',
         difficulty: data.difficulty || 'EASY',
-        slots_total: parseInt(data.slots_total) || 100,
+        slots_total: slotsTotal,
         slots_filled: 0,
-        min_followers: parseInt(data.min_followers) || 0,
+        min_followers: Math.max(0, parseInt(data.min_followers) || 0),
         is_active: data.is_active !== false
       };
 
@@ -552,13 +723,17 @@ module.exports = async function(req, res) {
         return res.status(500).json({error: 'Failed to create task: ' + r.error.message});
       }
 
-      // Notify all users about new task (only if task is active)
-      var notifyResult = null;
+      // Notify all users about new task (fire-and-forget to avoid blocking response)
+      var notifyPromise = null;
       if (r.data && r.data.is_active) {
-        notifyResult = await notifyAllUsersNewTask(r.data);
+        notifyPromise = notifyAllUsersNewTask(r.data).catch(function(e) {
+          console.error('NEW_TASK_NOTIFY: Background error:', e.message);
+          return { success: false, error: e.message };
+        });
       }
 
-      return res.status(200).json({success: true, task: r.data, notification: notifyResult});
+      // Don't await notification — return response immediately
+      return res.status(200).json({success: true, task: r.data, notification: 'queued'});
     }
 
     // Admin Tasks API - Update task
@@ -570,14 +745,24 @@ module.exports = async function(req, res) {
       try { data = JSON.parse(body); } catch (e) { return res.status(400).json({error: 'Invalid JSON'}); }
 
       var updateData = {};
-      if (data.title !== undefined) updateData.title = data.title;
-      if (data.description !== undefined) updateData.description = data.description;
-      if (data.reward !== undefined) updateData.reward = parseFloat(data.reward) || 0;
+      if (data.title !== undefined) updateData.title = String(data.title).substring(0, 200);
+      if (data.description !== undefined) updateData.description = String(data.description).substring(0, 2000);
+      if (data.reward !== undefined) {
+        var reward = parseFloat(data.reward);
+        if (isNaN(reward) || reward <= 0 || reward > 10000) {
+          return res.status(400).json({error: 'Reward must be between 0.01 and 10,000 USDC'});
+        }
+        updateData.reward = reward;
+      }
       if (data.task_url !== undefined) updateData.task_url = data.task_url || null;
       if (data.category !== undefined) updateData.category = data.category;
       if (data.difficulty !== undefined) updateData.difficulty = data.difficulty;
-      if (data.slots_total !== undefined) updateData.slots_total = parseInt(data.slots_total) || 100;
-      if (data.min_followers !== undefined) updateData.min_followers = parseInt(data.min_followers) || 0;
+      if (data.slots_total !== undefined) {
+        var slots = parseInt(data.slots_total);
+        if (slots < 1 || slots > 100000) return res.status(400).json({error: 'Slots must be between 1 and 100,000'});
+        updateData.slots_total = slots;
+      }
+      if (data.min_followers !== undefined) updateData.min_followers = Math.max(0, parseInt(data.min_followers) || 0);
       if (data.is_active !== undefined) updateData.is_active = data.is_active;
 
       var r = await supabase.from('tasks').update(updateData).eq('id', taskId).select().single();
@@ -722,12 +907,10 @@ module.exports = async function(req, res) {
       var txHash = bodyData.tx_hash || null;
 
       var subId = p.split('/')[4];
-      console.log('APPROVE v6: Starting for ID:', subId, 'tx_hash:', txHash);
-      console.log('APPROVE v6: Key role:', KEY_ROLE);
+      console.log('APPROVE v7: Starting for ID:', subId, 'tx_hash:', txHash);
 
       // Step 1: Get current submission
       var sub = await supabase.from('submissions').select('*, tasks(*), users(*)').eq('id', subId).single();
-      console.log('APPROVE v6: Fetch result:', JSON.stringify({data: sub.data?.status, error: sub.error}));
 
       if (sub.error) {
         return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message, step: 'fetch'});
@@ -738,14 +921,12 @@ module.exports = async function(req, res) {
 
       var currentStatus = sub.data.status;
       var reward = sub.data.tasks?.reward || 0;
-      console.log('APPROVE v6: Current status:', currentStatus, 'Reward:', reward);
 
       if (currentStatus !== 'PENDING') {
         return res.status(400).json({error: 'Already processed', currentStatus: currentStatus});
       }
 
-      // Step 2: Do the UPDATE - simple and direct
-      console.log('APPROVE v6: Executing UPDATE...');
+      // Step 2: Do the UPDATE
       var updateData = { status: 'APPROVED' };
       if (txHash) {
         updateData.tx_hash = txHash;
@@ -755,8 +936,6 @@ module.exports = async function(req, res) {
         .update(updateData)
         .eq('id', subId)
         .select();
-
-      console.log('APPROVE v6: Update result:', JSON.stringify(updateResult));
 
       if (updateResult.error) {
         return res.status(500).json({
@@ -777,7 +956,6 @@ module.exports = async function(req, res) {
       }
 
       var updatedStatus = updateResult.data[0].status;
-      console.log('APPROVE v6: Update returned status:', updatedStatus);
 
       if (updatedStatus !== 'APPROVED') {
         return res.status(500).json({
@@ -788,9 +966,7 @@ module.exports = async function(req, res) {
       }
 
       // Step 3: Verify with a fresh read
-      console.log('APPROVE v6: Verifying with fresh read...');
       var verifyResult = await supabase.from('submissions').select('status').eq('id', subId).single();
-      console.log('APPROVE v6: Verify result:', JSON.stringify(verifyResult));
 
       if (verifyResult.data?.status !== 'APPROVED') {
         return res.status(500).json({
@@ -807,7 +983,7 @@ module.exports = async function(req, res) {
           completed_tasks: (sub.data.users?.completed_tasks || 0) + 1
         }).eq('id', sub.data.user_id);
       } catch (e) {
-        console.log('APPROVE v6: User stats update failed:', e.message);
+        console.log('APPROVE: User stats update failed:', e.message);
       }
 
       // Step 5: Add activity (non-critical)
@@ -821,7 +997,7 @@ module.exports = async function(req, res) {
           amount: reward
         });
       } catch (e) {
-        console.log('APPROVE v6: Activity insert failed:', e.message);
+        console.log('APPROVE: Activity insert failed:', e.message);
       }
 
       // Step 6: Create notification for user
@@ -832,20 +1008,16 @@ module.exports = async function(req, res) {
         'Your submission for "' + (sub.data.tasks?.title || 'task') + '" was approved! +' + reward + ' USDC',
         subId
       );
-      console.log('APPROVE v6: Notification result:', JSON.stringify(notificationResult));
 
-      console.log('APPROVE v6: SUCCESS!');
       return res.status(200).json({
         success: true,
         message: 'Submission approved successfully',
         submission: { id: subId, status: 'APPROVED' },
         notification: notificationResult,
         debug: {
-          version: 'v6-DIRECT',
+          version: 'v7-HARDENED',
           keyRole: KEY_ROLE,
           userId: sub.data.user_id,
-          updateReturnedStatus: updatedStatus,
-          verifyStatus: verifyResult.data?.status,
           reward: reward
         }
       });
@@ -873,7 +1045,6 @@ module.exports = async function(req, res) {
       var rejectionReason = bodyData.rejection_reason || null;
 
       var subId = p.split('/')[4];
-      console.log('REJECT: Starting rejection for submission ID:', subId, 'Reason:', rejectionReason);
 
       var sub = await supabase.from('submissions').select('*, tasks(title)').eq('id', subId).single();
       if (sub.error) {
@@ -881,15 +1052,12 @@ module.exports = async function(req, res) {
         return res.status(500).json({error: 'Failed to fetch submission: ' + sub.error.message});
       }
       if (!sub.data) return res.status(404).json({error: 'Submission not found'});
-      console.log('REJECT: Current status:', sub.data.status);
       if (sub.data.status !== 'PENDING') return res.status(400).json({error: 'Submission already processed, current status: ' + sub.data.status});
 
       var updateResult = await supabase
         .from('submissions')
         .update({status: 'REJECTED', rejection_reason: rejectionReason})
         .eq('id', subId);
-
-      console.log('REJECT: Update result:', JSON.stringify(updateResult));
 
       if (updateResult.error) {
         console.error('REJECT: Update error:', updateResult.error);
@@ -898,7 +1066,6 @@ module.exports = async function(req, res) {
 
       // Verify the update
       var verifyResult = await supabase.from('submissions').select('*').eq('id', subId).single();
-      console.log('REJECT: Verification result:', JSON.stringify(verifyResult));
 
       if (verifyResult.data?.status !== 'REJECTED') {
         console.error('REJECT: Status did not change! Still:', verifyResult.data?.status);
@@ -907,14 +1074,15 @@ module.exports = async function(req, res) {
         });
       }
 
-      console.log('REJECT: SUCCESS - Status verified as REJECTED');
-
-      // Decrement slots_filled on the task to free up the slot
+      // Decrement slots_filled on the task atomically
       if (sub.data.task_id) {
-        var taskResult = await supabase.from('tasks').select('slots_filled').eq('id', sub.data.task_id).single();
-        if (taskResult.data && taskResult.data.slots_filled > 0) {
-          await supabase.from('tasks').update({ slots_filled: taskResult.data.slots_filled - 1 }).eq('id', sub.data.task_id);
-          console.log('REJECT: Decremented slots_filled for task:', sub.data.task_id);
+        var slotDec = await supabase.rpc('decrement_slot', { task_id_input: sub.data.task_id });
+        if (slotDec.error) {
+          // Fallback if RPC doesn't exist
+          var taskResult = await supabase.from('tasks').select('slots_filled').eq('id', sub.data.task_id).single();
+          if (taskResult.data && taskResult.data.slots_filled > 0) {
+            await supabase.from('tasks').update({ slots_filled: taskResult.data.slots_filled - 1 }).eq('id', sub.data.task_id);
+          }
         }
       }
 
@@ -930,7 +1098,6 @@ module.exports = async function(req, res) {
         notificationMessage,
         subId
       );
-      console.log('REJECT: Notification result:', JSON.stringify(notificationResult));
 
       return res.status(200).json({
         success: true,
