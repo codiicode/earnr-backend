@@ -2078,7 +2078,12 @@
                     let buttonOnClick = `onclick="openSubmitModal('${task.id}')"`;
                     let buttonTitle = '';
 
-                    if (alreadySubmitted) {
+                    if (slotsLeft <= 0) {
+                        buttonClass = 'btn btn-disabled';
+                        buttonText = 'TASK FULL';
+                        buttonOnClick = '';
+                        buttonTitle = 'title="No slots remaining"';
+                    } else if (alreadySubmitted) {
                         buttonClass = 'btn btn-disabled';
                         buttonText = 'SUBMITTED';
                         buttonOnClick = '';
