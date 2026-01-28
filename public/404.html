@@ -101,6 +101,26 @@
             color: #333;
             letter-spacing: 0.1em;
         }
+
+        /* Custom scrollbar styling - global */
+        *::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        *::-webkit-scrollbar-track {
+            background: rgba(0, 255, 65, 0.05);
+            border-radius: 3px;
+        }
+        *::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 65, 0.3);
+            border-radius: 3px;
+        }
+        *::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 65, 0.5);
+        }
+        *::-webkit-scrollbar-corner {
+            background: transparent;
+        }
     </style>
 </head>
 <body>

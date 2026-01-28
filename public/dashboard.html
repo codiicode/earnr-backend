@@ -1597,20 +1597,24 @@
             .main { padding-bottom: 80px; }
         }
 
-        /* Custom scrollbar styling */
-        .card-body::-webkit-scrollbar {
+        /* Custom scrollbar styling - global */
+        *::-webkit-scrollbar {
             width: 6px;
+            height: 6px;
         }
-        .card-body::-webkit-scrollbar-track {
+        *::-webkit-scrollbar-track {
             background: rgba(0, 255, 65, 0.05);
             border-radius: 3px;
         }
-        .card-body::-webkit-scrollbar-thumb {
+        *::-webkit-scrollbar-thumb {
             background: rgba(0, 255, 65, 0.3);
             border-radius: 3px;
         }
-        .card-body::-webkit-scrollbar-thumb:hover {
+        *::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 255, 65, 0.5);
+        }
+        *::-webkit-scrollbar-corner {
+            background: transparent;
         }
     </style>
 </head>
