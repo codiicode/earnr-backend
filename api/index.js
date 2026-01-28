@@ -663,7 +663,7 @@ module.exports = async function(req, res) {
       var page = parseInt(url.searchParams.get('page')) || 1;
       var limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100);
       var offset = (page - 1) * limit;
-      var r = await supabase.from('submissions').select('*, tasks!inner(*)', {count: 'exact'}).eq('user_id', user.id).eq('tasks.is_active', true).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
+      var r = await supabase.from('submissions').select('*, tasks(*)', {count: 'exact'}).eq('user_id', user.id).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
       return res.status(200).json({submissions: r.data || [], total: r.count || 0, page: page, limit: limit});
     }
 
@@ -870,6 +870,12 @@ module.exports = async function(req, res) {
         console.error('Task update error:', r.error);
         return res.status(500).json({error: 'Failed to update task: ' + r.error.message});
       }
+
+      // If task was deactivated, auto-cancel all pending submissions
+      if (data.is_active === false) {
+        await supabase.from('submissions').update({status: 'CANCELLED'}).eq('task_id', taskId).eq('status', 'PENDING');
+      }
+
       return res.status(200).json({success: true, task: r.data});
     }
 
