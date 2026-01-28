@@ -331,7 +331,7 @@ module.exports = async function(req, res) {
           total_earned: earningsByUser[u.id] || 0,
           tasks_completed: tasksByUser[u.id] || 0
         };
-      }).sort(function(a, b) { return b.total_earned - a.total_earned; }).slice(0, 20);
+      }).sort(function(a, b) { return b.total_earned - a.total_earned; }).slice(0, 50);
 
       return res.status(200).json({leaderboard: leaderboard});
     }
