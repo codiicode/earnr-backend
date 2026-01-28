@@ -2992,7 +2992,7 @@ function showPopup(message, isError) {
                 // Update feed
                 const feed = document.getElementById('payoutsFeed');
                 if (feed && data.transactions && data.transactions.length > 0) {
-                    feed.innerHTML = data.transactions.slice(0, 10).map(tx => `
+                    feed.innerHTML = data.transactions.map(tx => `
                         <div class="activity-item">
                             <div class="activity-avatar" style="${tx.avatar_url ? 'background-image:url(' + safeAttr(tx.avatar_url) + ');background-size:cover;' : 'background:var(--green-dim);border:1px solid var(--green-border);display:flex;align-items:center;justify-content:center;color:var(--green);'}">
                                 ${tx.avatar_url ? '' : '$'}
