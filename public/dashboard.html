@@ -1743,7 +1743,7 @@
                         <div class="card-header">
                             <span class="card-title">Top Earnrs This Week</span>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body" style="max-height: 600px; overflow-y: auto;">
                             <div class="empty-state">
                                 <div class="empty-state-icon">-</div>
                                 <div class="empty-state-text">No earnrs yet</div>
@@ -2648,7 +2648,7 @@ function showPopup(message, isError) {
                 const container = document.querySelector('#dashboard .main-grid .card:last-child .card-body');
                 
                 if (data.leaderboard && data.leaderboard.length > 0) {
-                    container.innerHTML = data.leaderboard.slice(0, 4).map((user, i) => `
+                    container.innerHTML = data.leaderboard.slice(0, 50).map((user, i) => `
                         <div class="lb-item" style="cursor:pointer" onclick="viewUserProfile('${safeAttr(user.id)}')">
                             <div class="lb-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
                             <div class="lb-avatar">
