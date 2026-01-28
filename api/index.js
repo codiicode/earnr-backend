@@ -592,7 +592,7 @@ module.exports = async function(req, res) {
     if (p === '/api/payouts') {
       try {
         var page = parseInt(url.searchParams.get('page')) || 1;
-        var limit = Math.min(parseInt(url.searchParams.get('limit')) || 500, 1000);
+        var limit = Math.min(parseInt(url.searchParams.get('limit')) || 1000, 2000);
         var offset = (page - 1) * limit;
 
         // Get approved submissions with user and task info (paginated)
