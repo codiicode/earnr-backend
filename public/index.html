@@ -298,6 +298,39 @@
             animation: fadeInUp 0.8s ease 0.3s backwards;
         }
 
+        .hero-stats {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-top: 3rem;
+            animation: fadeInUp 0.8s ease 0.5s backwards;
+        }
+
+        .hero-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .hero-stat-value {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #00FF66;
+        }
+
+        .hero-stat-label {
+            font-size: 0.55rem;
+            letter-spacing: 0.2em;
+            color: #555;
+        }
+
+        .hero-stat-divider {
+            width: 1px;
+            height: 32px;
+            background: #222;
+        }
+
         .btn-primary {
             display: inline-flex;
             align-items: center;
@@ -685,6 +718,14 @@
                 font-size: 0.85rem;
             }
 
+            .hero-stats {
+                gap: 1.2rem;
+            }
+
+            .hero-stat-value {
+                font-size: 1rem;
+            }
+
             .stats-ticker {
                 flex-wrap: wrap;
                 justify-content: center;
@@ -753,6 +794,23 @@
             <a href="#how-it-works">
                 <button class="btn-secondary">Learn More</button>
             </a>
+        </div>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="hero-stat-value" id="stat-users">—</span>
+                <span class="hero-stat-label">EARNRS</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <span class="hero-stat-value" id="stat-paid">—</span>
+                <span class="hero-stat-label">PAID OUT</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <span class="hero-stat-value" id="stat-online">—</span>
+                <span class="hero-stat-label">ONLINE NOW</span>
+            </div>
         </div>
 
     </section>
@@ -962,18 +1020,27 @@
                     animateCounter('totalEarnrs', 0, data.totalUsers || 0);
                     animateCounter('totalPaid', 0, data.totalPaidOut || 0);
                     animateCounter('totalTasks', 0, data.totalTasks || 0);
+                    animateCounter('stat-users', 0, data.totalUsers || 0);
+                    animateCounter('stat-online', 0, data.onlineUsers || 0);
                     isFirstLoad = false;
                 } else {
                     // Smooth update from current value
                     animateCounter('totalEarnrs', currentStats.totalUsers, data.totalUsers || 0);
                     animateCounter('totalPaid', currentStats.totalPaidOut, data.totalPaidOut || 0);
                     animateCounter('totalTasks', currentStats.totalTasks, data.totalTasks || 0);
+                    animateCounter('stat-users', currentStats.totalUsers, data.totalUsers || 0);
+                    animateCounter('stat-online', currentStats.onlineUsers || 0, data.onlineUsers || 0);
                 }
+
+                // Hero paid out stat (with $ prefix)
+                var paidEl = document.getElementById('stat-paid');
+                if (paidEl) paidEl.textContent = '$' + (data.totalPaidOut || 0).toLocaleString();
 
                 currentStats = {
                     totalUsers: data.totalUsers || 0,
                     totalPaidOut: data.totalPaidOut || 0,
-                    totalTasks: data.totalTasks || 0
+                    totalTasks: data.totalTasks || 0,
+                    onlineUsers: data.onlineUsers || 0
                 };
             } catch (err) {
                 console.log('Stats not available');
