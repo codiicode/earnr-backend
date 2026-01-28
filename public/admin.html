@@ -902,7 +902,7 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">REWARD</div>
-                            <div class="detail-value reward-value">${Number(sub.tasks?.reward) || 0} USDC</div>
+                            <div class="detail-value reward-value">${parseFloat(sub.tasks?.reward || 0).toFixed(2)} USDC</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">WALLET ADDRESS</div>
@@ -1248,7 +1248,7 @@
                         <div class="task-meta">
                             <div class="task-meta-item reward">
                                 <span>Reward:</span>
-                                <span class="value">${Number(task.reward) || 0} USDC</span>
+                                <span class="value">${parseFloat(task.reward || 0).toFixed(2)} USDC</span>
                             </div>
                             <div class="task-meta-item">
                                 <span>Category:</span>
