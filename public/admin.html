@@ -528,6 +528,12 @@
             border: 1px solid rgba(255, 71, 87, 0.3);
         }
 
+        .task-badge.full {
+            background: rgba(255, 165, 0, 0.1);
+            color: #ffa500;
+            border: 1px solid rgba(255, 165, 0, 0.3);
+        }
+
         .task-actions {
             display: flex;
             flex-direction: column;
@@ -721,6 +727,7 @@
                 <div class="task-filters">
                     <button class="filter-btn active" onclick="filterTasks('ALL', this)">ALL</button>
                     <button class="filter-btn" onclick="filterTasks('ACTIVE', this)">ACTIVE</button>
+                    <button class="filter-btn" onclick="filterTasks('FULL', this)">FULL</button>
                     <button class="filter-btn" onclick="filterTasks('INACTIVE', this)">DEACTIVATED</button>
                 </div>
             </div>
@@ -1225,7 +1232,9 @@
 
             let filteredTasks = allTasks;
             if (taskFilter === 'ACTIVE') {
-                filteredTasks = allTasks.filter(t => t.is_active);
+                filteredTasks = allTasks.filter(t => t.is_active && t.slots_filled < t.slots_total);
+            } else if (taskFilter === 'FULL') {
+                filteredTasks = allTasks.filter(t => t.is_active && t.slots_filled >= t.slots_total);
             } else if (taskFilter === 'INACTIVE') {
                 filteredTasks = allTasks.filter(t => !t.is_active);
             }
@@ -1237,12 +1246,15 @@
 
             container.innerHTML = filteredTasks.map(task => {
                 const safeId = escapeHtml(task.id);
+                const isFull = task.slots_filled >= task.slots_total;
+                const statusClass = !task.is_active ? 'inactive' : (isFull ? 'full' : 'active');
+                const statusText = !task.is_active ? 'INACTIVE' : (isFull ? 'FULL' : 'ACTIVE');
                 return `
                 <div class="task-card ${task.is_active ? '' : 'inactive'}" id="task-${safeId}">
                     <div class="task-info">
                         <h4>
                             ${escapeHtml(task.title)}
-                            <span class="task-badge ${task.is_active ? 'active' : 'inactive'}">${task.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+                            <span class="task-badge ${statusClass}">${statusText}</span>
                         </h4>
                         <p>${escapeHtml(task.description || 'No description')}</p>
                         <div class="task-meta">
