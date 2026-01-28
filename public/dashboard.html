@@ -2374,7 +2374,7 @@ async function saveWallet() {
     }
 
     var res = await fetch('/api/wallet', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({wallet: wallet})});
-    if (res.ok) showPopup('Your wallet is now saved. Congratulations on becoming an <span style="color:var(--primary);">EARNR</span>!');
+    if (res.ok) showPopup('Your wallet is now saved. Congratulations on becoming an EARNR!');
     else showPopup('Error saving wallet', true);
 }
 
