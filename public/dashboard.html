@@ -2931,19 +2931,27 @@ function showPopup(message, isError) {
             if (hint) { hint.textContent = 'copied!'; setTimeout(() => { hint.textContent = 'click to copy'; }, 2000); }
         }
 
+        let lastKnownBalance = null;
         async function fetchPayoutWalletUSDC() {
             const el = document.getElementById('payout-wallet-usdc');
             try {
                 const res = await fetch('/api/wallet-balance');
                 const data = await res.json();
-                if (data.totalUsd !== undefined) {
+                if (data.totalUsd !== undefined && data.totalUsd > 0) {
+                    lastKnownBalance = data.totalUsd;
                     el.textContent = '$' + data.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                } else {
-                    if (el) el.textContent = 'Unavailable';
+                } else if (data.totalUsd === 0 && data.solBalance === 0) {
+                    // Wallet is genuinely empty
+                    lastKnownBalance = 0;
+                    el.textContent = '$0.00';
+                } else if (lastKnownBalance !== null) {
+                    // API returned $0 but wallet has SOL — keep last known value
+                    el.textContent = '$' + lastKnownBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
+                // If no lastKnownBalance and API failed, leave the "..." placeholder
             } catch (err) {
                 console.error('Failed to fetch payout wallet balance:', err);
-                if (el) el.textContent = 'Unavailable';
+                // Don't overwrite — keep whatever is currently displayed
             }
         }
 

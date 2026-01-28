@@ -489,20 +489,34 @@ module.exports = async function(req, res) {
     }
 
     // Payout wallet balance - fetch SOL + stablecoin value server-side
+    // Cache to avoid showing $0 on intermittent API failures
     if (p === '/api/wallet-balance') {
       var PAYOUT_WALLET = 'CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL';
       var RPC = 'https://api.mainnet-beta.solana.com';
+
+      // Return cached value if fresh (under 60s)
+      if (global._walletCache && (Date.now() - global._walletCache.ts < 60000)) {
+        return res.status(200).json(global._walletCache.data);
+      }
+
       try {
-        // Use native fetch (Node 18+) for all requests
+        var fetchWithTimeout = function(url, opts, ms) {
+          ms = ms || 8000;
+          return Promise.race([
+            fetch(url, opts),
+            new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout')); }, ms); })
+          ]);
+        };
+
         var rpcFetch = function(method, params) {
-          return fetch(RPC, {
+          return fetchWithTimeout(RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params })
           }).then(function(r) { return r.json(); });
         };
 
-        // Fetch SOL balance, token accounts, and SOL price in parallel
+        // Fetch SOL balance, token accounts, and SOL price from 3 sources in parallel
         var results = await Promise.allSettled([
           rpcFetch('getBalance', [PAYOUT_WALLET]),
           rpcFetch('getTokenAccountsByOwner', [
@@ -510,11 +524,13 @@ module.exports = async function(req, res) {
             { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
             { encoding: 'jsonParsed' }
           ]),
-          fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+          fetchWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
             headers: { 'Accept': 'application/json', 'User-Agent': 'earnr-xyz/1.0' }
           }).then(function(r) { return r.json(); }),
-          // Fallback price source
-          fetch('https://price.jup.ag/v6/price?ids=SOL', {
+          fetchWithTimeout('https://price.jup.ag/v6/price?ids=SOL', {
+            headers: { 'Accept': 'application/json' }
+          }).then(function(r) { return r.json(); }),
+          fetchWithTimeout('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT', {
             headers: { 'Accept': 'application/json' }
           }).then(function(r) { return r.json(); })
         ]);
@@ -523,11 +539,17 @@ module.exports = async function(req, res) {
         var tokensRes = results[1].status === 'fulfilled' ? results[1].value : null;
         var cgPrice = results[2].status === 'fulfilled' ? results[2].value : null;
         var jupPrice = results[3].status === 'fulfilled' ? results[3].value : null;
+        var binPrice = results[4].status === 'fulfilled' ? results[4].value : null;
 
         var solBalance = (solRes?.result?.value || 0) / 1e9;
 
-        // Try CoinGecko first, then Jupiter as fallback
-        var solPrice = cgPrice?.solana?.usd || jupPrice?.data?.SOL?.price || 0;
+        // Try CoinGecko, then Jupiter, then Binance
+        var solPrice = cgPrice?.solana?.usd || jupPrice?.data?.SOL?.price || parseFloat(binPrice?.price) || 0;
+
+        // If all price sources failed but we have SOL, use cached price
+        if (solPrice === 0 && solBalance > 0 && global._walletCache?.data?.solPrice) {
+          solPrice = global._walletCache.data.solPrice;
+        }
 
         var totalUsd = solBalance * solPrice;
 
@@ -543,14 +565,25 @@ module.exports = async function(req, res) {
           if (stablecoins[info.mint]) totalUsd += amt;
         }
 
-        return res.status(200).json({
+        var responseData = {
           totalUsd: totalUsd,
           solBalance: solBalance,
           solPrice: solPrice,
           wallet: PAYOUT_WALLET
-        });
+        };
+
+        // Only cache if we got a real value (don't cache $0 when wallet has SOL)
+        if (totalUsd > 0 || solBalance === 0) {
+          global._walletCache = { ts: Date.now(), data: responseData };
+        }
+
+        return res.status(200).json(responseData);
       } catch (err) {
         console.error('Wallet balance error:', err);
+        // On total failure, return cached value if available
+        if (global._walletCache?.data) {
+          return res.status(200).json(global._walletCache.data);
+        }
         return res.status(500).json({ error: 'Failed to fetch wallet balance' });
       }
     }
