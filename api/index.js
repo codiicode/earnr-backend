@@ -755,7 +755,7 @@ module.exports = async function(req, res) {
       var offset = (page - 1) * limit;
       var statusFilter = url.searchParams.get('status') || null;
 
-      var query = supabase.from('submissions').select('*, users(*), tasks(*)', {count: 'exact'}).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
+      var query = supabase.from('submissions').select('*, users(*), tasks!inner(*)', {count: 'exact'}).eq('tasks.is_active', true).order('created_at', {ascending: false}).range(offset, offset + limit - 1);
       if (statusFilter) query = query.eq('status', statusFilter);
 
       var r = await query;

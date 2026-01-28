@@ -1861,19 +1861,6 @@
                     </div>
                 </div>
 
-                <div style="margin-top:2rem;display:flex;gap:1rem;flex-wrap:wrap;">
-                    <div class="stat-card" style="flex:1;min-width:200px;">
-                        <div class="stat-label">Payout Wallet</div>
-                        <div style="font-size:0.7rem;color:var(--white);font-family:inherit;letter-spacing:0.03em;word-break:break-all;cursor:pointer;margin-top:0.5rem;transition:color 0.2s;" onclick="copyWallet(this)" title="Click to copy">CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL</div>
-                        <div class="stat-change" id="wallet-copy-hint">click to copy</div>
-                    </div>
-                    <div class="stat-card" style="flex:0 0 auto;min-width:180px;">
-                        <div class="stat-label">Wallet Balance</div>
-                        <div class="stat-value" id="payout-wallet-usdc" style="font-size:2rem;">...</div>
-                        <div class="stat-change">total value</div>
-                    </div>
-                </div>
-
                 <div class="card" style="margin-top:2rem;">
                     <div class="card-header">
                         <span class="card-title">Payout History</span>
@@ -2929,40 +2916,6 @@ function showPopup(message, isError) {
         // ============================================
 
         let payoutChart = null;
-
-        function copyWallet(el) {
-            navigator.clipboard.writeText('CvNbLNsjoNGeKkFRdKbHtf24CYbsLMfCDz9AfarEzzxL');
-            const hint = document.getElementById('wallet-copy-hint');
-            if (hint) { hint.textContent = 'copied!'; setTimeout(() => { hint.textContent = 'click to copy'; }, 2000); }
-        }
-
-        let lastKnownBalance = null;
-        async function fetchPayoutWalletUSDC() {
-            const el = document.getElementById('payout-wallet-usdc');
-            try {
-                const res = await fetch('/api/wallet-balance');
-                const data = await res.json();
-                if (data.totalUsd !== undefined && data.totalUsd > 0) {
-                    lastKnownBalance = data.totalUsd;
-                    el.textContent = '$' + data.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                } else if (data.totalUsd === 0 && data.solBalance === 0) {
-                    // Wallet is genuinely empty
-                    lastKnownBalance = 0;
-                    el.textContent = '$0.00';
-                } else if (lastKnownBalance !== null) {
-                    // API returned $0 but wallet has SOL — keep last known value
-                    el.textContent = '$' + lastKnownBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                }
-                // If no lastKnownBalance and API failed, leave the "..." placeholder
-            } catch (err) {
-                console.error('Failed to fetch payout wallet balance:', err);
-                // Don't overwrite — keep whatever is currently displayed
-            }
-        }
-
-        // Fetch wallet balance on load and refresh every 30 seconds
-        fetchPayoutWalletUSDC();
-        setInterval(fetchPayoutWalletUSDC, 30000);
 
         async function loadPayouts() {
             try {
