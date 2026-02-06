@@ -1213,6 +1213,15 @@ module.exports = async function(req, res) {
       });
     }
 
+    // Serve PFP generator page
+    if (p === '/pfp' || p === '/pfp.html') {
+      res.setHeader('Content-Type', 'text/html');
+      var pfpPath = path.join(process.cwd(), 'public', 'pfp.html');
+      if (fs.existsSync(pfpPath)) {
+        return res.status(200).send(fs.readFileSync(pfpPath, 'utf8'));
+      }
+    }
+
     // Serve how it works page
     if (p === '/how-it-works' || p === '/how-it-works.html') {
       res.setHeader('Content-Type', 'text/html');

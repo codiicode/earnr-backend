@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>$ber — PFP Generator</title>
+    <meta name="description" content="Generate your $ber PFP. Add the ice bear to your profile picture.">
+
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="$ber PFP Generator">
+    <meta property="og:description" content="Add the ice bear to your profile picture.">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="$ber PFP Generator">
+    <meta name="twitter:description" content="Add the ice bear to your profile picture.">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg: #0a0e14;
+            --surface: #111821;
+            --surface-2: #182030;
+            --border: #1e2a3a;
+            --border-hover: #2a3a50;
+            --ice: #7dd3fc;
+            --ice-dim: rgba(125, 211, 252, 0.08);
+            --ice-border: rgba(125, 211, 252, 0.2);
+            --ice-glow: rgba(125, 211, 252, 0.4);
+            --white: #e8edf3;
+            --gray: #6b7a8d;
+            --gray-light: #8899aa;
+            --accent: #38bdf8;
+            --danger: #f87171;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg);
+            color: var(--white);
+            line-height: 1.5;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        ::selection { background: var(--ice); color: var(--bg); }
+
+        .bg-frost {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(125, 211, 252, 0.04), transparent),
+                radial-gradient(ellipse 500px 500px at 80% 80%, rgba(56, 189, 248, 0.03), transparent);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+
+        .logo span {
+            color: var(--ice);
+        }
+
+        header p {
+            color: var(--gray);
+            font-size: 13px;
+        }
+
+        /* Layout */
+        .editor-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 720px) {
+            .editor-layout {
+                grid-template-columns: minmax(0, 1fr) 280px;
+            }
+        }
+
+        /* Canvas Area */
+        .canvas-wrap {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .canvas-wrap:active { cursor: grabbing; }
+
+        .canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .drop-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 14, 20, 0.85);
+            border: 2px dashed var(--ice);
+            border-radius: 12px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 5;
+        }
+
+        .drop-overlay.active {
+            opacity: 1;
+        }
+
+        .drop-overlay svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            color: var(--ice);
+        }
+
+        .drop-overlay span {
+            color: var(--ice);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .empty-state.hidden { display: none; }
+
+        .empty-state svg {
+            width: 40px; height: 40px;
+            color: var(--gray);
+            margin-bottom: 10px;
+        }
+
+        .empty-state span {
+            color: var(--gray);
+            font-size: 13px;
+        }
+
+        /* Controls Panel */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .ctrl-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .ctrl-section h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--gray);
+            margin-bottom: 12px;
+        }
+
+        /* Upload Button */
+        .upload-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--ice-dim);
+            border: 1px dashed var(--ice-border);
+            border-radius: 8px;
+            color: var(--ice);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .upload-btn:hover {
+            background: rgba(125, 211, 252, 0.12);
+            border-color: var(--ice);
+        }
+
+        input[type="file"] { display: none; }
+
+        /* Preset Backgrounds */
+        .presets {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .preset {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .preset:hover {
+            border-color: var(--border-hover);
+            transform: scale(1.05);
+        }
+
+        .preset.active {
+            border-color: var(--ice);
+            box-shadow: 0 0 12px var(--ice-glow);
+        }
+
+        /* Range Slider */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .slider-row label {
+            font-size: 11px;
+            color: var(--gray-light);
+            min-width: 36px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--ice);
+            cursor: pointer;
+            border: 2px solid var(--bg);
+            box-shadow: 0 0 6px var(--ice-glow);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--ice);
+            cursor: pointer;
+            border: 2px solid var(--bg);
+        }
+
+        /* Toggle Buttons */
+        .toggle-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 8px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--gray-light);
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--white);
+        }
+
+        .toggle-btn.active {
+            background: var(--ice-dim);
+            border-color: var(--ice-border);
+            color: var(--ice);
+        }
+
+        /* Action Buttons */
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            padding: 12px;
+            background: var(--ice);
+            border: none;
+            border-radius: 8px;
+            color: var(--bg);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+            box-shadow: 0 0 20px var(--ice-glow);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            padding: 12px 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--white);
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--border-hover);
+        }
+
+        .btn-secondary svg {
+            width: 18px; height: 18px;
+        }
+
+        /* Reset Button */
+        .btn-reset {
+            width: 100%;
+            padding: 8px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--gray);
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-reset:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: var(--gray);
+            font-size: 11px;
+        }
+
+        footer a {
+            color: var(--ice);
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+
+        /* Mobile */
+        @media (max-width: 719px) {
+            .container { padding: 16px 12px 40px; }
+            .logo { font-size: 24px; }
+            .canvas-wrap { max-width: 100%; }
+            .presets { grid-template-columns: repeat(5, 1fr); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--surface);
+            border: 1px solid var(--ice-border);
+            color: var(--white);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 12px;
+            z-index: 100;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-frost"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo"><span>$ber</span> pfp generator</div>
+            <p>add the ice bear to your pfp</p>
+        </header>
+
+        <div class="editor-layout">
+            <div class="canvas-wrap" id="canvasWrap">
+                <canvas id="canvas" width="1000" height="1000"></canvas>
+                <div class="empty-state" id="emptyState">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 16v-4m0-4h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/>
+                    </svg>
+                    <span>upload an image or pick a background</span>
+                </div>
+                <div class="drop-overlay" id="dropOverlay">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 6v12m-6-6h12"/>
+                    </svg>
+                    <span>drop image here</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="ctrl-section">
+                    <h3>Background</h3>
+                    <label class="upload-btn" for="bgUpload" id="uploadLabel">
+                        Upload Image
+                    </label>
+                    <input type="file" id="bgUpload" accept="image/*">
+                    <div class="presets" id="presets"></div>
+                </div>
+
+                <div class="ctrl-section">
+                    <h3>Bear</h3>
+                    <div class="slider-row">
+                        <label>Size</label>
+                        <input type="range" id="bearSize" min="50" max="500" value="220">
+                    </div>
+                    <div class="slider-row">
+                        <label>Blur</label>
+                        <input type="range" id="bearBlur" min="0" max="12" value="2">
+                    </div>
+                    <div class="toggle-row">
+                        <button class="toggle-btn" id="flipBtn">Flip</button>
+                        <button class="toggle-btn" id="resetPosBtn">Center</button>
+                    </div>
+                </div>
+
+                <div class="ctrl-section">
+                    <h3>Options</h3>
+                    <div class="toggle-row">
+                        <button class="toggle-btn" id="textToggle">$ber text</button>
+                        <button class="toggle-btn" id="roundToggle">Round</button>
+                    </div>
+                    <div class="toggle-row">
+                        <button class="toggle-btn" id="borderToggle">Ice border</button>
+                    </div>
+                </div>
+
+                <div class="ctrl-section">
+                    <div class="actions">
+                        <button class="btn-primary" id="downloadBtn">Download PFP</button>
+                        <button class="btn-secondary" id="copyBtn" title="Copy to clipboard">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="btn-reset" id="resetBtn" style="margin-top:8px">Reset All</button>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <span>$ber</span>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // --- Config ---
+        const CANVAS_SIZE = 1000;
+        const PRESETS = [
+            { name: 'Midnight', bg: '#0a0e14' },
+            { name: 'Arctic', bg: 'linear-gradient(135deg, #0c1929 0%, #1a3a5c 50%, #0f2640 100%)' },
+            { name: 'Glacier', bg: 'linear-gradient(180deg, #1a2a3a 0%, #2d4a5e 40%, #8cb4c9 100%)' },
+            { name: 'Frost', bg: 'linear-gradient(135deg, #e8f0fe 0%, #b8d4e8 50%, #8ab4d0 100%)' },
+            { name: 'Storm', bg: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
+            { name: 'Snow', bg: '#f0f4f8' },
+            { name: 'Ice', bg: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)' },
+            { name: 'Polar', bg: 'linear-gradient(180deg, #2d3436 0%, #636e72 100%)' },
+            { name: 'Aurora', bg: 'linear-gradient(135deg, #0a0e27 0%, #1a3a4a 30%, #2d6a5e 60%, #1a4a3a 100%)' },
+            { name: 'Void', bg: '#000000' },
+        ];
+
+        // --- State ---
+        let state = {
+            bgImage: null,
+            bgPreset: null,
+            bearX: CANVAS_SIZE / 2,
+            bearY: CANVAS_SIZE * 0.55,
+            bearSize: 220,
+            bearBlur: 2,
+            bearFlipped: false,
+            showText: false,
+            roundMask: false,
+            iceBorder: false,
+        };
+
+        // --- Elements ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const wrap = document.getElementById('canvasWrap');
+        const emptyState = document.getElementById('emptyState');
+        const dropOverlay = document.getElementById('dropOverlay');
+        const bgUpload = document.getElementById('bgUpload');
+        const sizeSlider = document.getElementById('bearSize');
+        const blurSlider = document.getElementById('bearBlur');
+        const flipBtn = document.getElementById('flipBtn');
+        const resetPosBtn = document.getElementById('resetPosBtn');
+        const textToggle = document.getElementById('textToggle');
+        const roundToggle = document.getElementById('roundToggle');
+        const borderToggle = document.getElementById('borderToggle');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const toast = document.getElementById('toast');
+        const presetsContainer = document.getElementById('presets');
+
+        // --- Bear Image ---
+        let berImage = null;
+        const berImg = new Image();
+        berImg.crossOrigin = 'anonymous';
+        berImg.onload = function() {
+            berImage = berImg;
+            render();
+        };
+        // Try to load external ber image
+        berImg.onerror = function() {
+            berImage = null;
+            render();
+        };
+        berImg.src = '/ber.png';
+
+        // --- Draw Bear (canvas fallback) ---
+        function drawBearFallback(ctx, x, y, size, blur) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const s = size / 200;
+            const blurVal = Math.max(1, blur);
+
+            // Body
+            ctx.filter = 'blur(' + (blurVal + 2) + 'px)';
+            ctx.fillStyle = '#d9d4c8';
+            ctx.beginPath();
+            ctx.ellipse(0, 65 * s, 50 * s, 75 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head shadow
+            ctx.fillStyle = '#cec9bd';
+            ctx.beginPath();
+            ctx.moveTo(-52 * s, -10 * s);
+            ctx.quadraticCurveTo(-58 * s, 30 * s, -45 * s, 50 * s);
+            ctx.quadraticCurveTo(0, 70 * s, 45 * s, 50 * s);
+            ctx.quadraticCurveTo(58 * s, 30 * s, 52 * s, -10 * s);
+            ctx.quadraticCurveTo(50 * s, -55 * s, 0, -60 * s);
+            ctx.quadraticCurveTo(-50 * s, -55 * s, -52 * s, -10 * s);
+            ctx.fill();
+
+            // Head main
+            ctx.filter = 'blur(' + blurVal + 'px)';
+            ctx.fillStyle = '#ede8dd';
+            ctx.beginPath();
+            ctx.moveTo(-48 * s, -12 * s);
+            ctx.quadraticCurveTo(-54 * s, 25 * s, -40 * s, 45 * s);
+            ctx.quadraticCurveTo(0, 62 * s, 40 * s, 45 * s);
+            ctx.quadraticCurveTo(54 * s, 25 * s, 48 * s, -12 * s);
+            ctx.quadraticCurveTo(46 * s, -50 * s, 0, -55 * s);
+            ctx.quadraticCurveTo(-46 * s, -50 * s, -48 * s, -12 * s);
+            ctx.fill();
+
+            // Left ear
+            ctx.beginPath();
+            ctx.ellipse(-35 * s, -52 * s, 14 * s, 13 * s, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Right ear
+            ctx.beginPath();
+            ctx.ellipse(35 * s, -52 * s, 14 * s, 13 * s, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Muzzle area (lighter)
+            ctx.filter = 'blur(' + (blurVal + 1) + 'px)';
+            ctx.fillStyle = '#f2ede3';
+            ctx.beginPath();
+            ctx.ellipse(0, 15 * s, 25 * s, 20 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.filter = 'blur(' + Math.max(0.5, blurVal * 0.5) + 'px)';
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-16 * s, -8 * s, 5 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(16 * s, -8 * s, 5 * s, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Nose
+            ctx.beginPath();
+            ctx.ellipse(0, 20 * s, 7 * s, 5.5 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.filter = 'none';
+            ctx.restore();
+        }
+
+        // --- Render ---
+        function render() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            // Save for potential round clip
+            ctx.save();
+
+            if (state.roundMask) {
+                ctx.beginPath();
+                ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0, Math.PI * 2);
+                ctx.clip();
+            }
+
+            // Background
+            if (state.bgImage) {
+                emptyState.classList.add('hidden');
+                drawImageCover(ctx, state.bgImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            } else if (state.bgPreset !== null) {
+                emptyState.classList.add('hidden');
+                drawPresetBg(ctx, PRESETS[state.bgPreset].bg);
+            } else {
+                emptyState.classList.remove('hidden');
+                ctx.fillStyle = '#0a0e14';
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+
+            // Bear
+            ctx.save();
+            if (state.bearFlipped) {
+                ctx.translate(CANVAS_SIZE, 0);
+                ctx.scale(-1, 1);
+                var drawX = CANVAS_SIZE - state.bearX;
+            } else {
+                var drawX = state.bearX;
+            }
+
+            if (berImage) {
+                // Draw real ber image
+                var bw = state.bearSize * 2;
+                var bh = bw * (berImage.height / berImage.width);
+                ctx.filter = 'blur(' + state.bearBlur + 'px)';
+                ctx.drawImage(berImage, drawX - bw / 2, state.bearY - bh / 2, bw, bh);
+                ctx.filter = 'none';
+            } else {
+                drawBearFallback(ctx, drawX, state.bearY, state.bearSize, state.bearBlur);
+            }
+            ctx.restore();
+
+            // $ber text
+            if (state.showText) {
+                ctx.save();
+                ctx.font = 'bold 64px "Space Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                ctx.fillText('$ber', CANVAS_SIZE / 2, 80);
+                ctx.shadowColor = 'transparent';
+                ctx.restore();
+            }
+
+            // Ice border
+            if (state.iceBorder) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(125, 211, 252, 0.6)';
+                ctx.lineWidth = 12;
+                if (state.roundMask) {
+                    ctx.beginPath();
+                    ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2 - 6, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    ctx.strokeRect(6, 6, CANVAS_SIZE - 12, CANVAS_SIZE - 12);
+                }
+                ctx.restore();
+            }
+
+            // Restore round clip
+            ctx.restore();
+
+            // If round mask, clear corners with transparent
+            if (state.roundMask) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.beginPath();
+                ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function drawImageCover(ctx, img, x, y, w, h) {
+            var imgRatio = img.width / img.height;
+            var canvasRatio = w / h;
+            var sx, sy, sw, sh;
+
+            if (imgRatio > canvasRatio) {
+                sh = img.height;
+                sw = sh * canvasRatio;
+                sx = (img.width - sw) / 2;
+                sy = 0;
+            } else {
+                sw = img.width;
+                sh = sw / canvasRatio;
+                sx = 0;
+                sy = (img.height - sh) / 2;
+            }
+            ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+        }
+
+        function drawPresetBg(ctx, bg) {
+            if (bg.startsWith('linear-gradient')) {
+                var parsed = parseGradient(bg);
+                if (!parsed) { ctx.fillStyle = '#0a0e14'; ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE); return; }
+
+                var grad;
+                var angle = parsed.angle;
+                var coords = angleToCoords(angle, CANVAS_SIZE, CANVAS_SIZE);
+                grad = ctx.createLinearGradient(coords.x1, coords.y1, coords.x2, coords.y2);
+
+                parsed.stops.forEach(function(stop) {
+                    grad.addColorStop(stop.pos, stop.color);
+                });
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            } else {
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+        }
+
+        function parseGradient(str) {
+            var match = str.match(/linear-gradient\((\d+)deg,\s*(.+)\)/);
+            if (!match) return null;
+            var angle = parseInt(match[1]);
+            var stopsStr = match[2];
+            var stops = [];
+            var regex = /(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))\s+(\d+)%/g;
+            var m;
+            while ((m = regex.exec(stopsStr)) !== null) {
+                stops.push({ color: m[1], pos: parseInt(m[2]) / 100 });
+            }
+            return { angle: angle, stops: stops };
+        }
+
+        function angleToCoords(angle, w, h) {
+            var rad = (angle - 90) * Math.PI / 180;
+            var x1 = w / 2 - Math.cos(rad) * w / 2;
+            var y1 = h / 2 - Math.sin(rad) * h / 2;
+            var x2 = w / 2 + Math.cos(rad) * w / 2;
+            var y2 = h / 2 + Math.sin(rad) * h / 2;
+            return { x1: x1, y1: y1, x2: x2, y2: y2 };
+        }
+
+        // --- Presets ---
+        PRESETS.forEach(function(p, i) {
+            var el = document.createElement('div');
+            el.className = 'preset';
+            el.style.background = p.bg;
+            el.title = p.name;
+            el.addEventListener('click', function() {
+                state.bgPreset = i;
+                state.bgImage = null;
+                updatePresetUI();
+                render();
+            });
+            presetsContainer.appendChild(el);
+        });
+
+        function updatePresetUI() {
+            var items = presetsContainer.querySelectorAll('.preset');
+            items.forEach(function(el, i) {
+                el.classList.toggle('active', i === state.bgPreset);
+            });
+        }
+
+        // --- Image Upload ---
+        bgUpload.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) loadBgImage(file);
+        });
+
+        function loadBgImage(file) {
+            if (!file.type.startsWith('image/')) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    state.bgImage = img;
+                    state.bgPreset = null;
+                    updatePresetUI();
+                    render();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Drag & Drop ---
+        wrap.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropOverlay.classList.add('active');
+        });
+
+        wrap.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            dropOverlay.classList.remove('active');
+        });
+
+        wrap.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropOverlay.classList.remove('active');
+            var file = e.dataTransfer.files[0];
+            if (file) loadBgImage(file);
+        });
+
+        // --- Bear Dragging ---
+        let dragging = false;
+        let dragStartX, dragStartY, bearStartX, bearStartY;
+
+        function getCanvasCoords(clientX, clientY) {
+            var rect = wrap.getBoundingClientRect();
+            var scale = CANVAS_SIZE / rect.width;
+            return {
+                x: (clientX - rect.left) * scale,
+                y: (clientY - rect.top) * scale
+            };
+        }
+
+        wrap.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            dragging = true;
+            var coords = getCanvasCoords(e.clientX, e.clientY);
+            dragStartX = coords.x;
+            dragStartY = coords.y;
+            bearStartX = state.bearX;
+            bearStartY = state.bearY;
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            var coords = getCanvasCoords(e.clientX, e.clientY);
+            state.bearX = bearStartX + (coords.x - dragStartX);
+            state.bearY = bearStartY + (coords.y - dragStartY);
+            render();
+        });
+
+        document.addEventListener('mouseup', function() {
+            dragging = false;
+        });
+
+        // Touch support
+        wrap.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                dragging = true;
+                var t = e.touches[0];
+                var coords = getCanvasCoords(t.clientX, t.clientY);
+                dragStartX = coords.x;
+                dragStartY = coords.y;
+                bearStartX = state.bearX;
+                bearStartY = state.bearY;
+            }
+        }, { passive: false });
+
+        wrap.addEventListener('touchmove', function(e) {
+            if (!dragging || e.touches.length !== 1) return;
+            e.preventDefault();
+            var t = e.touches[0];
+            var coords = getCanvasCoords(t.clientX, t.clientY);
+            state.bearX = bearStartX + (coords.x - dragStartX);
+            state.bearY = bearStartY + (coords.y - dragStartY);
+            render();
+        }, { passive: false });
+
+        wrap.addEventListener('touchend', function() {
+            dragging = false;
+        });
+
+        // Scroll to resize
+        wrap.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            var delta = e.deltaY > 0 ? -10 : 10;
+            state.bearSize = Math.max(50, Math.min(500, state.bearSize + delta));
+            sizeSlider.value = state.bearSize;
+            render();
+        }, { passive: false });
+
+        // --- Controls ---
+        sizeSlider.addEventListener('input', function() {
+            state.bearSize = parseInt(this.value);
+            render();
+        });
+
+        blurSlider.addEventListener('input', function() {
+            state.bearBlur = parseInt(this.value);
+            render();
+        });
+
+        flipBtn.addEventListener('click', function() {
+            state.bearFlipped = !state.bearFlipped;
+            flipBtn.classList.toggle('active', state.bearFlipped);
+            render();
+        });
+
+        resetPosBtn.addEventListener('click', function() {
+            state.bearX = CANVAS_SIZE / 2;
+            state.bearY = CANVAS_SIZE * 0.55;
+            render();
+        });
+
+        textToggle.addEventListener('click', function() {
+            state.showText = !state.showText;
+            textToggle.classList.toggle('active', state.showText);
+            render();
+        });
+
+        roundToggle.addEventListener('click', function() {
+            state.roundMask = !state.roundMask;
+            roundToggle.classList.toggle('active', state.roundMask);
+            render();
+        });
+
+        borderToggle.addEventListener('click', function() {
+            state.iceBorder = !state.iceBorder;
+            borderToggle.classList.toggle('active', state.iceBorder);
+            render();
+        });
+
+        // --- Download ---
+        downloadBtn.addEventListener('click', function() {
+            var link = document.createElement('a');
+            link.download = 'ber-pfp.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showToast('PFP downloaded');
+        });
+
+        // --- Copy to clipboard ---
+        copyBtn.addEventListener('click', function() {
+            canvas.toBlob(function(blob) {
+                if (!blob) return;
+                try {
+                    navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]).then(function() {
+                        showToast('Copied to clipboard');
+                    }).catch(function() {
+                        showToast('Copy failed — try download instead');
+                    });
+                } catch (e) {
+                    showToast('Copy not supported — try download');
+                }
+            }, 'image/png');
+        });
+
+        // --- Reset ---
+        resetBtn.addEventListener('click', function() {
+            state = {
+                bgImage: null,
+                bgPreset: null,
+                bearX: CANVAS_SIZE / 2,
+                bearY: CANVAS_SIZE * 0.55,
+                bearSize: 220,
+                bearBlur: 2,
+                bearFlipped: false,
+                showText: false,
+                roundMask: false,
+                iceBorder: false,
+            };
+            sizeSlider.value = 220;
+            blurSlider.value = 2;
+            bgUpload.value = '';
+            flipBtn.classList.remove('active');
+            textToggle.classList.remove('active');
+            roundToggle.classList.remove('active');
+            borderToggle.classList.remove('active');
+            updatePresetUI();
+            render();
+            showToast('Reset');
+        });
+
+        // --- Toast ---
+        var toastTimer;
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // --- Init ---
+        render();
+    })();
+    </script>
+</body>
+</html>
